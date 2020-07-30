@@ -16,12 +16,18 @@
 #ifndef CNN_SEGMENTATION_H
 #define CNN_SEGMENTATION_H
 
+#include<iostream>
+#include<fstream>
 #include <chrono>
 #include <numeric>
 
 #include <ros/ros.h>
 
 #include "caffe/caffe.hpp"
+
+#include "NvCaffeParser.h"
+#include "NvInfer.h"
+#include "logger.h"
 
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
@@ -52,6 +58,8 @@ class CNNSegmentation
 public:
   CNNSegmentation();
 
+  ~CNNSegmentation();
+
   void run();
 
   void test_run();
@@ -63,9 +71,11 @@ private:
   int height_;
   std_msgs::Header message_header_;
   std::string topic_src_;
+  std::string last_layer_name_;
+  std::string precision_;
 
-  int gpu_device_id_;
-  bool use_gpu_;
+  int gpu_device_id_, dla_id_; // GPU and NVDLA (for jetson platforms)
+  bool use_gpu_, use_dla_;
 
   // nodehandle
   ros::NodeHandle nh_;
@@ -80,17 +90,28 @@ private:
   std::shared_ptr<caffe::Net<float>> caffe_net_;
 
   // center offset prediction
-  boost::shared_ptr<caffe::Blob<float>> instance_pt_blob_;
+  //boost::shared_ptr<caffe::Blob<float>> instance_pt_blob_;
+  nvinfer1::ITensor* instance_pt_blob_;
+
   // objectness prediction
-  boost::shared_ptr<caffe::Blob<float>> category_pt_blob_;
+  //boost::shared_ptr<caffe::Blob<float>> category_pt_blob_;
+  nvinfer1::ITensor* category_pt_blob_;
+
   // fg probability prediction
-  boost::shared_ptr<caffe::Blob<float>> confidence_pt_blob_;
+  //boost::shared_ptr<caffe::Blob<float>> confidence_pt_blob_;
+  nvinfer1::ITensor* confidence_pt_blob_;
+
   // object height prediction
-  boost::shared_ptr<caffe::Blob<float>> height_pt_blob_;
+  //boost::shared_ptr<caffe::Blob<float>> height_pt_blob_;
+  nvinfer1::ITensor* height_pt_blob_;
+
   // raw features to be input into network
-  boost::shared_ptr<caffe::Blob<float>> feature_blob_;
+  //boost::shared_ptr<caffe::Blob<float>> feature_blob_;
+  nvinfer1::ITensor* feature_blob_;
+
   // class prediction
-  boost::shared_ptr<caffe::Blob<float>> class_pt_blob_;
+  //boost::shared_ptr<caffe::Blob<float>> class_pt_blob_;
+  nvinfer1::ITensor* class_pt_blob_;
 
   // clustering model for post-processing
   std::shared_ptr<Cluster2D> cluster2d_;
@@ -98,7 +119,16 @@ private:
   // bird-view raw feature generator
   std::shared_ptr<FeatureGenerator> feature_generator_;
 
-  bool init();
+  //TensorRT variables
+  nvinfer1::IBuilder* trt_builder_;
+  nvinfer1::INetworkDefinition* trt_network_;
+  nvcaffeparser1::ICaffeParser* trt_caffe_parser_;
+  nvinfer1::IBuilderConfig* trt_bconfig_;
+  nvinfer1::ICudaEngine* trt_cuda_engine_;
+  nvinfer1::IRuntime* trt_runtime_;
+
+
+    bool init();
 
   bool segment(const pcl::PointCloud<pcl::PointXYZI>::Ptr &pc_ptr,
                const pcl::PointIndices &valid_idx,

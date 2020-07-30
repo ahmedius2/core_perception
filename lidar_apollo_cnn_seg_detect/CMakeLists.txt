@@ -43,7 +43,10 @@ if(USE_CUDA AND EXISTS "${CAFFE_PATH}")
     nodes/cnn_segmentation.cpp
     nodes/cluster2d.cpp
     nodes/feature_generator.cpp
+    nodes/logger.cpp
   )
+
+
   target_link_libraries(lidar_apollo_cnn_seg_detect
     ${catkin_LIBRARIES}
     ${OpenCV_LIBRARIES}
@@ -51,6 +54,9 @@ if(USE_CUDA AND EXISTS "${CAFFE_PATH}")
     ${CUDA_CUBLAS_LIBRARIES}
     ${CUDA_curand_LIBRARY}
     ${CAFFE_PATH}/lib/libcaffe.so
+    /usr/lib/libnvcaffe_parser.so
+    /usr/lib/libnvinfer.so
+    /usr/lib/libnvparsers.so
     glog
   )
   add_dependencies(lidar_apollo_cnn_seg_detect

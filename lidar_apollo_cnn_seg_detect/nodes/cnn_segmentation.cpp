@@ -16,6 +16,8 @@
 
 #include "cnn_segmentation.h"
 
+
+
 CNNSegmentation::CNNSegmentation() : nh_()
 {
 }
@@ -27,6 +29,7 @@ bool CNNSegmentation::init()
 
   ros::NodeHandle private_node_handle("~");//to receive args
 
+  //deploy file .prototxt
   if (private_node_handle.getParam("network_definition_file", proto_file))
   {
     ROS_INFO("[%s] network_definition_file: %s", __APP_NAME__, proto_file.c_str());
@@ -35,6 +38,7 @@ bool CNNSegmentation::init()
     ROS_INFO("[%s] No Network Definition File was received. Finishing execution.", __APP_NAME__);
     return false;
   }
+  //modelFile .caffemodel
   if (private_node_handle.getParam("pretrained_model_file", weight_file))
   {
     ROS_INFO("[%s] Pretrained Model File: %s", __APP_NAME__, weight_file.c_str());
@@ -60,57 +64,129 @@ bool CNNSegmentation::init()
   private_node_handle.param<int>("height", height_, 512);
   ROS_INFO("[%s] height: %d", __APP_NAME__, height_);
 
-  private_node_handle.param<bool>("use_gpu", use_gpu_, false);
+  private_node_handle.param<bool>("use_gpu", use_gpu_, true);
   ROS_INFO("[%s] use_gpu: %d", __APP_NAME__, use_gpu_);
 
   private_node_handle.param<int>("gpu_device_id", gpu_device_id_, 0);
   ROS_INFO("[%s] gpu_device_id: %d", __APP_NAME__, gpu_device_id_);
 
-  /// Instantiate Caffe net
-  if (!use_gpu_)
-  {
-    caffe::Caffe::set_mode(caffe::Caffe::CPU);
+  private_node_handle.param<bool>("use_dla", use_dla_, false);
+  ROS_INFO("[%s] use_dla: %d", __APP_NAME__, use_gpu_);
+
+  private_node_handle.param<int>("dla_id", dla_id_, 0);
+  ROS_INFO("[%s] dla_id: %d", __APP_NAME__, dla_id_);
+
+  private_node_handle.param<std::string>("precision", precision_, "FP32");
+  ROS_INFO("[%s] gpu/nvdla precision: %s", __APP_NAME__, precision_.c_str());
+
+  private_node_handle.param<std::string>("last_layer_name", last_layer_name_, "class_score");
+  ROS_INFO("[%s] last_layer_name: %s", __APP_NAME__, last_layer_name_.c_str());
+
+  /// Instantiate TensorRT net from Caffe model
+  //An engine can have multiple execution contexts, allowing one set of weights to be used for multiple overlapping
+  // inference tasks. For example, you can process images in parallel CUDA streams using one engine and one context
+  // per stream. Each context will be created on the same GPU as the engine.
+  trt_runtime_ = nvinfer1::createInferRuntime(gLogger.getTRTLogger());
+
+  bool use_builder=true;
+
+  std::ifstream engine_file("serialized_lidar_apollo_cnn.engine", std::ios::ate | std::ios::binary);
+  if(engine_file.good()){
+    std::streamsize file_size = engine_file.tellg();
+    engine_file.seekg(0, std::ios::beg);
+    std::vector<char> buffer(file_size);
+    if (engine_file.read(buffer.data(), file_size))
+    {
+      trt_cuda_engine_ = trt_runtime_->deserializeCudaEngine(buffer.data(), buffer.size());
+      use_builder=false;
+      ROS_INFO("Using serialized model.", __APP_NAME__);
+
+    }
+    else{
+      ROS_INFO("Read error during deserialization, backing to builder.", __APP_NAME__);
+    }
   }
-  else
-  {
-    caffe::Caffe::SetDevice(gpu_device_id_);
-    caffe::Caffe::set_mode(caffe::Caffe::GPU);
-    caffe::Caffe::DeviceQuery();
+
+  if(use_builder) {
+    trt_builder_ = nvinfer1::createInferBuilder(gLogger.getTRTLogger());
+    trt_network_ = trt_builder_->createNetworkV2(0U);
+    trt_bconfig_ = trt_builder_->createBuilderConfig();
+    trt_caffe_parser_ = nvcaffeparser1::createCaffeParser();
+
+    trt_builder_->setMaxBatchSize(1); // lets keep it simple for now
+    trt_builder_->setGpuAllocator(nullptr); // use default
+
+    trt_bconfig_->setMaxWorkspaceSize(1ULL << 32); // Let's make it 1 GB
+    trt_bconfig_->setEngineCapability(nvinfer1::EngineCapability::kDEFAULT); // Full tensor capability
+    //trt_bconfig_->setFlag(nvinfer1::BuilderFlag::kSTRICT_TYPES);
+
+    nvinfer1::DataType dt; // I am manipulating this to save space, maybe keeping it FLOAT will provide max accuracy
+    if (precision_.compare("INT8")) {
+      trt_bconfig_->setFlag(nvinfer1::BuilderFlag::kFP16);// let it fallback to both FP32(default) and FP16
+      trt_bconfig_->setFlag(nvinfer1::BuilderFlag::kINT8);// if INT8 does not work for a layer
+      dt = nvinfer1::DataType::kINT8;
+    } else if (precision_.compare("FP16")) {
+      trt_bconfig_->setFlag(nvinfer1::BuilderFlag::kFP16);
+      dt = nvinfer1::DataType::kHALF;
+    } else { // FP32
+      dt = nvinfer1::DataType::kFLOAT;
+    }
+
+    if (use_dla_) { // Use DLA if configured
+      trt_bconfig_->setDefaultDeviceType(nvinfer1::DeviceType::kDLA);
+      trt_bconfig_->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
+      trt_bconfig_->setDLACore(dla_id_);
+    }
+
+    "data"
+    &feature_blob_
+
+    // Parse caffe network file
+    // Set output tensors, caffe:blob, TensorRT:tensor
+    const std::vector<std::string> output_tensor_names{
+      "instance_pt", "category_score", "confidence_score", "height_pt", "data", "class_score"
+    };
+
+    std::vector<nvinfer1::ITensor**> output_tensor_ptrs{
+      &instance_pt_blob_, &category_pt_blob_, &confidence_pt_blob_, &height_pt_blob_, &feature_blob_, &class_pt_blob_
+    };
+
+    const nvcaffeparser1::IBlobNameToTensor *blobNameToTensor = trt_caffe_parser_->parse(
+        proto_file.c_str(), weight_file.c_str(), *trt_network_, dt);
+
+    for(int i=0; i < output_tensor_names.size() ; ++i){
+      *(output_tensor_ptrs[i]) = blobNameToTensor->find(output_tensor_names[i].c_str());
+      CHECK(*(output_tensor_ptrs[i]) != nullptr) << "`" << output_tensor_names[i] << "` layer required";
+      trt_network_->markOutput(**(output_tensor_ptrs[i]));
+    }
+
+    // print layers and check their dla compability
+    for(int i=0; i< trt_network_->getNbLayers(); ++i){
+      nvinfer1::ILayer* layer = trt_network_->getLayer(i);
+      std::cout << "Layer " << i << ": " << layer->getName() << ",\t\tDLA compatible: "
+                << (trt_bconfig_->canRunOnDLA(layer) ? "YES\n" : "NO\n" );
+    }
+
+    trt_cuda_engine_ = trt_builder_->buildEngineWithConfig(*trt_network_, *trt_bconfig_);
+    if (trt_cuda_engine_ == nullptr) {
+      ROS_ERROR("Couldn't build the CUDA Engine!", __APP_NAME__);
+      return false;
+    }
+
+    nvinfer1::IHostMemory *serializedModel = trt_cuda_engine_->serialize();
+    std::ofstream engine_file_out("serialized_lidar_apollo_cnn.engine", std::ios::out | std::ios::binary);
+    if (engine_file_out.bad()) {
+      ROS_INFO("Couldn't open the file to serialize.", __APP_NAME__);
+    }
+    else{
+      engine_file_out.write((char *) serializedModel->data(), serializedModel->size());
+    }
+    serializedModel->destroy();
+    trt_caffe_parser_->destroy();
+    trt_bconfig_->destroy();
+    trt_network_->destroy();
+    trt_builder_->destroy();
   }
-
-  caffe_net_.reset(new caffe::Net<float>(proto_file, caffe::TEST));
-  caffe_net_->CopyTrainedLayersFrom(weight_file);
-
-
-  std::string instance_pt_blob_name = "instance_pt";
-  instance_pt_blob_ = caffe_net_->blob_by_name(instance_pt_blob_name);
-  CHECK(instance_pt_blob_ != nullptr) << "`" << instance_pt_blob_name
-                                      << "` layer required";
-
-  std::string category_pt_blob_name = "category_score";
-  category_pt_blob_ = caffe_net_->blob_by_name(category_pt_blob_name);
-  CHECK(category_pt_blob_ != nullptr) << "`" << category_pt_blob_name
-                                      << "` layer required";
-
-  std::string confidence_pt_blob_name = "confidence_score";
-  confidence_pt_blob_ = caffe_net_->blob_by_name(confidence_pt_blob_name);
-  CHECK(confidence_pt_blob_ != nullptr) << "`" << confidence_pt_blob_name
-                                        << "` layer required";
-
-  std::string height_pt_blob_name = "height_pt";
-  height_pt_blob_ = caffe_net_->blob_by_name(height_pt_blob_name);
-  CHECK(height_pt_blob_ != nullptr) << "`" << height_pt_blob_name
-                                    << "` layer required";
-
-  std::string feature_blob_name = "data";
-  feature_blob_ = caffe_net_->blob_by_name(feature_blob_name);
-  CHECK(feature_blob_ != nullptr) << "`" << feature_blob_name
-                                  << "` layer required";
-
-  std::string class_pt_blob_name = "class_score";
-  class_pt_blob_ = caffe_net_->blob_by_name(class_pt_blob_name);
-  CHECK(class_pt_blob_ != nullptr) << "`" << class_pt_blob_name
-                                   << "` layer required";
 
   cluster2d_.reset(new Cluster2D());
   if (!cluster2d_->init(height_, width_, range_))
@@ -120,7 +196,7 @@ bool CNNSegmentation::init()
   }
 
   feature_generator_.reset(new FeatureGenerator());
-  if (!feature_generator_->init(feature_blob_.get()))
+  if (!feature_generator_->init(feature_blob_))
   {
     ROS_ERROR("[%s] Fail to Initialize feature generator for CNNSegmentation", __APP_NAME__);
     return false;
@@ -254,4 +330,9 @@ void CNNSegmentation::pubColoredPoints(const autoware_msgs::DetectedObjectArray 
   pcl::toROSMsg(colored_cloud, output_colored_cloud);
   output_colored_cloud.header = message_header_;
   points_pub_.publish(output_colored_cloud);
+}
+
+CNNSegmentation::~CNNSegmentation() {
+  trt_cuda_engine_->destroy();
+  trt_runtime_->destroy();
 }

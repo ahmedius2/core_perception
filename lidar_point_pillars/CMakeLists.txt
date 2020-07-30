@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(lidar_point_pillars)
 
+set(ENV{AUTOWARE_COMPILE_WITH_CUDA} 1)
+
 # set flags for CUDA availability
 option(CUDA_AVAIL "CUDA available" OFF)
 find_package(CUDA)
@@ -21,9 +23,9 @@ endif ()
 # set flags for TensorRT availability
 option(TRT_AVAIL "TensorRT available" OFF)
 # try to find the tensorRT modules
-find_library(NVINFER NAMES nvinfer)
-find_library(NVPARSERS NAMES nvparsers)
-find_library(NVONNXPARSERS NAMES nvonnxparser)
+find_library(NVINFER NAMES nvinfer HINTS /home/ahmet/other/TensorRT-7.0.0.11/lib)
+find_library(NVPARSERS NAMES nvparsers  HINTS /home/ahmet/other/TensorRT-7.0.0.11/lib)
+find_library(NVONNXPARSERS NAMES nvonnxparser  HINTS /home/ahmet/other/TensorRT-7.0.0.11/lib)
 
 if(NVINFER AND NVPARSERS AND NVONNXPARSERS)
   message("TensorRT is available!")

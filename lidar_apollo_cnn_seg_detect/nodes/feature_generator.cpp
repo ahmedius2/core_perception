@@ -16,7 +16,7 @@
 
 #include "feature_generator.h"
 
-bool FeatureGenerator::init(caffe::Blob<float>* out_blob)
+bool FeatureGenerator::init(nvinfer1::ITensor* out_blob)
 {
   out_blob_ = out_blob;
 
@@ -30,7 +30,8 @@ bool FeatureGenerator::init(caffe::Blob<float>* out_blob)
       << "Current implementation version requires input_width == input_height.";
 
   // set output blob and log lookup table
-  out_blob_->Reshape(1, 8, height_, width_);
+  //out_blob_->Reshape(1, 8, height_, width_);
+  out_blob_->setDimensions(nvinfer1::Dims4(1, 8, height_,  width_));
 
   log_table_.resize(256);
   for (size_t i = 0; i < log_table_.size(); ++i) {
@@ -38,7 +39,8 @@ bool FeatureGenerator::init(caffe::Blob<float>* out_blob)
   }
 
   float* out_blob_data = nullptr;
-  out_blob_data = out_blob_->mutable_cpu_data();
+  //out_blob_data = out_blob_->mutable_cpu_data();
+  out_blob_data = out_blob_->getLocation();
 
   int channel_index = 0;
   max_height_data_ = out_blob_data + out_blob_->offset(0, channel_index++);
