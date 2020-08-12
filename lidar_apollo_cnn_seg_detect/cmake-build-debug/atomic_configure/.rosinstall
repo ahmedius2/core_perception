@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/ahmet/autoware.ai/src/autoware/core_perception/lidar_apollo_cnn_seg_detect/cmake-build-debug/devel/setup.sh

@@ -109,6 +109,7 @@ bool CNNSegmentation::init()
 
   if(use_builder) {
     trt_builder_ = nvinfer1::createInferBuilder(gLogger.getTRTLogger());
+    //1U << static_cast<int>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)
     trt_network_ = trt_builder_->createNetworkV2(0U);
     trt_bconfig_ = trt_builder_->createBuilderConfig();
     trt_caffe_parser_ = nvcaffeparser1::createCaffeParser();
@@ -138,8 +139,6 @@ bool CNNSegmentation::init()
       trt_bconfig_->setDLACore(dla_id_);
     }
 
-    "data"
-    &feature_blob_
 
     // Parse caffe network file
     // Set output tensors, caffe:blob, TensorRT:tensor
