@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(vision_darknet_detect)
 
+set(ENV{AUTOWARE_COMPILE_WITH_CUDA} 1)
 
 find_package(autoware_build_flags REQUIRED)
 

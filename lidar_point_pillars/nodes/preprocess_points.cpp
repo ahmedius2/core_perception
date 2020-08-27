@@ -85,16 +85,25 @@ void PreprocessPoints::preprocess(const float* in_points_array, int in_num_point
   int coor_to_pillaridx[GRID_Y_SIZE_ * GRID_X_SIZE_];
   initializeVariables(coor_to_pillaridx, sparse_pillar_map, pillar_x, pillar_y, pillar_z, pillar_i,
                       x_coors_for_sub_shaped, y_coors_for_sub_shaped);
+
+  // this loop will continue until all points are processed OR
+  //   when maximum number of point pillars is reached, therefore
+  //   we don't need to care about the rest of the points
   for (int i = 0; i < in_num_points; i++)
   {
+    // these three coordinates determine the index of the pillar which in_points_array[i] will be put
     int x_coor = std::floor((in_points_array[i * NUM_BOX_CORNERS_ + 0] - MIN_X_RANGE_) / PILLAR_X_SIZE_);
     int y_coor = std::floor((in_points_array[i * NUM_BOX_CORNERS_ + 1] - MIN_Y_RANGE_) / PILLAR_Y_SIZE_);
     int z_coor = std::floor((in_points_array[i * NUM_BOX_CORNERS_ + 2] - MIN_Z_RANGE_) / PILLAR_Z_SIZE_);
+    // if in_points_array[i] cannot be put in any pillar, skip to next point
     if (x_coor < 0 || x_coor >= GRID_X_SIZE_ || y_coor < 0 || y_coor >= GRID_Y_SIZE_ || z_coor < 0 ||
         z_coor >= GRID_Z_SIZE_)
     {
       continue;
     }
+
+    // check whether the selected pillar is indexed
+    // if not, determine its index (pillar_count)
     // reverse index
     int pillar_index = coor_to_pillaridx[y_coor * GRID_X_SIZE_ + x_coor];
     if (pillar_index == -1)
@@ -119,9 +128,11 @@ void PreprocessPoints::preprocess(const float* in_points_array, int in_num_point
 
       sparse_pillar_map[y_coor * NUM_INDS_FOR_SCAN_ + x_coor] = 1;
     }
+    // place the point in its pillar
     int num = num_points_per_pillar[pillar_index];
     if (num < MAX_NUM_POINTS_PER_PILLAR_)
     {
+      // here for example, pillar_x stores the x of all points for all pillars
       pillar_x[pillar_index * MAX_NUM_POINTS_PER_PILLAR_ + num] = in_points_array[i * NUM_BOX_CORNERS_ + 0];
       pillar_y[pillar_index * MAX_NUM_POINTS_PER_PILLAR_ + num] = in_points_array[i * NUM_BOX_CORNERS_ + 1];
       pillar_z[pillar_index * MAX_NUM_POINTS_PER_PILLAR_ + num] = in_points_array[i * NUM_BOX_CORNERS_ + 2];

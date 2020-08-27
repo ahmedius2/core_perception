@@ -27,11 +27,14 @@
 // headers in STL
 #include <vector>
 #include <iomanip>
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <map>
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <ros/init.h>
 
 // headers in TensorRT
 #include "NvInfer.h"
@@ -44,6 +47,20 @@
 #include "lidar_point_pillars/anchor_mask_cuda.h"
 #include "lidar_point_pillars/scatter_cuda.h"
 #include "lidar_point_pillars/postprocess_cuda.h"
+
+#define LIMIT_EXEC
+#ifdef LIMIT_EXEC
+#define MESSAGES_TO_PROCESS 3639u
+#endif
+
+// Simple Timer
+#define LPP_TSTART timespec start, end;                               \
+                    clock_gettime(CLOCK_MONOTONIC, &start);
+
+#define LPP_TQUERY(TDIFF_VECTOR) clock_gettime(CLOCK_MONOTONIC, &end);   \
+{ double t_ms = ((double)(end.tv_sec - start.tv_sec) * 1.0e9 +      \
+                  (double)(end.tv_nsec - start.tv_nsec))/1.0e6;     \
+    TDIFF_VECTOR.push_back(t_ms); };
 
 // Logger for TensorRT info/warning/errors
 class Logger : public nvinfer1::ILogger
@@ -189,6 +206,8 @@ private:
   float* dev_box_for_nms_;
   int* dev_filter_count_;
 
+  std::vector<std::vector<double>> stats_;
+
   std::unique_ptr<PreprocessPoints> preprocess_points_ptr_;
   std::unique_ptr<PreprocessPointsCuda> preprocess_points_cuda_ptr_;
   std::unique_ptr<AnchorMaskCuda> anchor_mask_cuda_ptr_;
@@ -311,6 +330,8 @@ public:
   * @details This is an interface for the algorithm
   */
   void doInference(const float* in_points_array, const int in_num_points, std::vector<float>& out_detections);
+
+  void printStats();
 };
 
 #endif  // POINTS_PILLAR_H

@@ -66,7 +66,6 @@ public:
   * @param[in] dev_box_anchors_min_y Array for storing min y value for each anchor
   * @param[in] dev_box_anchors_max_x Array for storing max x value for each anchor
   * @param[in] dev_box_anchors_max_y Array for storing max y value for each anchor
-  * @param[in] dev_box_anchors_max_y Array for storing max y value for each anchor
   * @param[out] dev_anchor_mask Anchor mask for filtering the network output
   * @details dev_* means device memory. Make a mask for filtering pillar occupancy area
   */

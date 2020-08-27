@@ -21,13 +21,14 @@
 #include "lidar_point_pillars/common.h"
 #include "lidar_point_pillars/preprocess_points_cuda.h"
 
+// determine the pillars and put the points in them
 __global__ void make_pillar_histo_kernel(
                                      const float* dev_points,
                                      float* dev_pillar_x_in_coors,
                                      float* dev_pillar_y_in_coors,
                                      float* dev_pillar_z_in_coors,
                                      float* dev_pillar_i_in_coors,
-                                     int* pillar_count_histo,
+                                     int* pillar_count_histo, // this holds the number of points in each histogram
                                      const int num_points,
                                      const int max_points_per_pillar,
                                      const int GRID_X_SIZE,
@@ -58,6 +59,7 @@ __global__ void make_pillar_histo_kernel(
     int count = atomicAdd(&pillar_count_histo[y_coor*GRID_X_SIZE + x_coor], 1);
     if(count < max_points_per_pillar)
     {
+      // the place of each pillar on the array is deterministic, depends on their x,y coords
       int ind = y_coor*GRID_X_SIZE*max_points_per_pillar + x_coor*max_points_per_pillar + count;
       dev_pillar_x_in_coors[ind] = dev_points[th_i*NUM_BOX_CORNERS + 0];
       dev_pillar_y_in_coors[ind] = dev_points[th_i*NUM_BOX_CORNERS + 1];
@@ -67,7 +69,7 @@ __global__ void make_pillar_histo_kernel(
   }
 }
 
-
+// grid_x blocks, grid_y threads
 __global__ void make_pillar_index_kernel(
                                                int* dev_pillar_count_histo,
                                                int* dev_counter,
@@ -120,12 +122,12 @@ __global__ void make_pillar_index_kernel(
   }
 }
 
-
+// this kernel processes all points in all selected pillars
 __global__ void make_pillar_feature_kernel(
-                                          float* dev_pillar_x_in_coors,
-                                          float* dev_pillar_y_in_coors,
-                                          float* dev_pillar_z_in_coors,
-                                          float* dev_pillar_i_in_coors,
+                                          float* dev_pillar_x_in_coors, //input
+                                          float* dev_pillar_y_in_coors, //input
+                                          float* dev_pillar_z_in_coors, //input
+                                          float* dev_pillar_i_in_coors, //input
                                           float* dev_pillar_x,
                                           float* dev_pillar_y,
                                           float* dev_pillar_z,
@@ -167,8 +169,8 @@ __global__ void make_extra_network_input_kernel(float* dev_x_coors_for_sub,
   float y = dev_y_coors_for_sub[ith_pillar];
   int num_points_for_a_pillar = dev_num_points_per_pillar[ith_pillar];
   int ind = ith_pillar*MAX_NUM_POINTS_PER_PILLAR + ith_point;
-  dev_x_coors_for_sub_shaped[ind] = x;
-  dev_y_coors_for_sub_shaped[ind] = y;
+  dev_x_coors_for_sub_shaped[ind] = x; // shaped version size = (next line->)
+  dev_y_coors_for_sub_shaped[ind] = y; //   sizeof(dev_x_coors_for_sub)*MAX_NUM_POINTS_PER_PILLAR
 
   if(ith_point < num_points_for_a_pillar)
   {

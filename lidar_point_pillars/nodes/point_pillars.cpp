@@ -60,7 +60,7 @@ PointPillars::PointPillars(const bool reproduce_result_mode, const float score_t
   , ANCHOR_DX_SIZE_(1.6f)
   , ANCHOR_DY_SIZE_(3.9f)
   , ANCHOR_DZ_SIZE_(1.56f)
-  , NUM_BOX_CORNERS_(4)
+  , NUM_BOX_CORNERS_(4) // these seem to be 4 features of a point, x, y, z, intensity
   , NUM_OUTPUT_BOX_FEATURE_(7)
 {
   if (reproduce_result_mode_)
@@ -175,6 +175,7 @@ PointPillars::~PointPillars()
   rpn_runtime_->destroy();
   pfe_engine_->destroy();
   rpn_engine_->destroy();
+
 }
 
 void PointPillars::deviceMemoryMalloc()
@@ -426,7 +427,16 @@ void PointPillars::onnxToTRTModel(const std::string& model_file,             // 
 
   // create the builder
   nvinfer1::IBuilder* builder = nvinfer1::createInferBuilder(g_logger_);
-  nvinfer1::INetworkDefinition* network = builder->createNetwork();
+  nvinfer1::INetworkDefinition* network = builder->createNetworkV2(
+		  1U << static_cast<int>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+  auto* config = builder->createBuilderConfig();
+
+#ifdef FP16_MODE
+  if(builder->platformHasFastFp16()) {
+      builder->setHalf2Mode(true);
+      config->setFlag(nvinfer1::BuilderFlag::kFP16);
+  }
+#endif
 
   auto parser = nvonnxparser::createParser(*network, g_logger_);
 
@@ -439,15 +449,16 @@ void PointPillars::onnxToTRTModel(const std::string& model_file,             // 
 
   // Build the engine
   builder->setMaxBatchSize(BATCH_SIZE_);
-  builder->setMaxWorkspaceSize(1 << 20);
+  config->setMaxWorkspaceSize(1 << 20);
 
-  nvinfer1::ICudaEngine* engine = builder->buildCudaEngine(*network);
+  nvinfer1::ICudaEngine* engine = builder->buildEngineWithConfig(*network,*config);
 
   parser->destroy();
 
   // serialize the engine, then close everything down
   trt_model_stream = engine->serialize();
   engine->destroy();
+  config->destroy();
   network->destroy();
   builder->destroy();
 }
@@ -468,6 +479,7 @@ void PointPillars::preprocessCPU(const float* in_points_array, const int in_num_
 
   float* sparse_pillar_map = new float[NUM_INDS_FOR_SCAN_ * NUM_INDS_FOR_SCAN_];
 
+  // everything given in here is to be filled expect in_points_array and in_num_points
   preprocess_points_ptr_->preprocess(in_points_array, in_num_points, x_coors, y_coors, num_points_per_pillar, pillar_x,
                                      pillar_y, pillar_z, pillar_i, x_coors_for_sub_shaped, y_coors_for_sub_shaped,
                                      pillar_feature_mask, sparse_pillar_map, host_pillar_count_);
@@ -548,40 +560,98 @@ void PointPillars::preprocess(const float* in_points_array, const int in_num_poi
 
 void PointPillars::doInference(const float* in_points_array, const int in_num_points, std::vector<float>& out_detections)
 {
-  preprocess(in_points_array, in_num_points);
+  stats_.push_back(std::vector<double>());
+  auto& stat = stats_.back();
+  {
+      LPP_TSTART
+      preprocess(in_points_array, in_num_points);
 
-  anchor_mask_cuda_ptr_->doAnchorMaskCuda(dev_sparse_pillar_map_, dev_cumsum_along_x_, dev_cumsum_along_y_,
-                                          dev_box_anchors_min_x_, dev_box_anchors_min_y_, dev_box_anchors_max_x_,
-                                          dev_box_anchors_max_y_, dev_anchor_mask_);
+      anchor_mask_cuda_ptr_->doAnchorMaskCuda(dev_sparse_pillar_map_, dev_cumsum_along_x_, dev_cumsum_along_y_,
+                                              dev_box_anchors_min_x_, dev_box_anchors_min_y_, dev_box_anchors_max_x_,
+                                              dev_box_anchors_max_y_, dev_anchor_mask_);
 
+      LPP_TQUERY(stat)
+  }
   cudaStream_t stream;
-  GPU_CHECK(cudaStreamCreate(&stream));
-  // clang-format off
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[0], dev_pillar_x_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[1], dev_pillar_y_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[2], dev_pillar_z_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[3], dev_pillar_i_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[4], dev_num_points_per_pillar_, MAX_NUM_PILLARS_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[5], dev_x_coors_for_sub_shaped_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[6], dev_y_coors_for_sub_shaped_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[7], dev_pillar_feature_mask_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
-  // clang-format on
-  pfe_context_->enqueue(BATCH_SIZE_, pfe_buffers_, stream, nullptr);
+  {
+      LPP_TSTART
+      GPU_CHECK(cudaStreamCreate(&stream));
+      // clang-format off
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[0], dev_pillar_x_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[1], dev_pillar_y_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[2], dev_pillar_z_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[3], dev_pillar_i_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[4], dev_num_points_per_pillar_, MAX_NUM_PILLARS_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[5], dev_x_coors_for_sub_shaped_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[6], dev_y_coors_for_sub_shaped_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
+      GPU_CHECK(cudaMemcpyAsync(pfe_buffers_[7], dev_pillar_feature_mask_, MAX_NUM_PILLARS_ * MAX_NUM_POINTS_PER_PILLAR_ * sizeof(float), cudaMemcpyDeviceToDevice, stream));
 
-  GPU_CHECK(cudaMemset(dev_scattered_feature_, 0, RPN_INPUT_SIZE_ * sizeof(float)));
-  scatter_cuda_ptr_->doScatterCuda(host_pillar_count_[0], dev_x_coors_, dev_y_coors_, (float*)pfe_buffers_[8],
-                                   dev_scattered_feature_);
+      // clang-format on
+      pfe_context_->enqueue(BATCH_SIZE_, pfe_buffers_, stream, nullptr);
+      // output is (float*)pfe_buffers_[8]
 
-  GPU_CHECK(cudaMemcpyAsync(rpn_buffers_[0], dev_scattered_feature_, BATCH_SIZE_ * RPN_INPUT_SIZE_ * sizeof(float),
-                            cudaMemcpyDeviceToDevice, stream));
-  rpn_context_->enqueue(BATCH_SIZE_, rpn_buffers_, stream, nullptr);
+      cudaStreamSynchronize(stream);
+      GPU_CHECK(cudaMemset(dev_scattered_feature_, 0, RPN_INPUT_SIZE_ * sizeof(float)));
+      scatter_cuda_ptr_->doScatterCuda(host_pillar_count_[0], dev_x_coors_, dev_y_coors_, (float*)pfe_buffers_[8],
+                                       dev_scattered_feature_);
+      LPP_TQUERY(stat)
+  }
+  {
+      LPP_TSTART
+      GPU_CHECK(cudaMemcpyAsync(rpn_buffers_[0], dev_scattered_feature_, BATCH_SIZE_ * RPN_INPUT_SIZE_ * sizeof(float),
+                                cudaMemcpyDeviceToDevice, stream));
 
-  GPU_CHECK(cudaMemset(dev_filter_count_, 0, sizeof(int)));
-  postprocess_cuda_ptr_->doPostprocessCuda(
-      (float*)rpn_buffers_[1], (float*)rpn_buffers_[2], (float*)rpn_buffers_[3], dev_anchor_mask_, dev_anchors_px_,
-      dev_anchors_py_, dev_anchors_pz_, dev_anchors_dx_, dev_anchors_dy_, dev_anchors_dz_, dev_anchors_ro_,
-      dev_filtered_box_, dev_filtered_score_, dev_filtered_dir_, dev_box_for_nms_, dev_filter_count_, out_detections);
+      rpn_context_->enqueue(BATCH_SIZE_, rpn_buffers_, stream, nullptr);
+      cudaStreamSynchronize(stream);// test
 
-  // release the stream and the buffers
-  cudaStreamDestroy(stream);
+      GPU_CHECK(cudaMemset(dev_filter_count_, 0, sizeof(int)));
+      LPP_TQUERY(stat)
+  }
+  {
+      LPP_TSTART
+      postprocess_cuda_ptr_->doPostprocessCuda(
+          (float*)rpn_buffers_[1], (float*)rpn_buffers_[2], (float*)rpn_buffers_[3], dev_anchor_mask_, dev_anchors_px_,
+          dev_anchors_py_, dev_anchors_pz_, dev_anchors_dx_, dev_anchors_dy_, dev_anchors_dz_, dev_anchors_ro_,
+          dev_filtered_box_, dev_filtered_score_, dev_filtered_dir_, dev_box_for_nms_, dev_filter_count_, out_detections);
+
+      // release the stream and the buffers
+      cudaStreamDestroy(stream); //test
+      LPP_TQUERY(stat)
+  }
+
+#ifdef LIMIT_EXEC
+  static auto processed_messages=0;
+  if(++processed_messages >= MESSAGES_TO_PROCESS){
+      printStats();
+      ros::shutdown();
+  }
+#endif
+}
+
+void PointPillars::printStats()
+{
+    //print stats
+    std::cout<<"\n\nTime stats:\n";
+    auto sum_stats = std::vector<double>();
+    for(auto stat : stats_){
+        auto sum=0;
+        for(auto stat_elem : stat)
+            sum += stat_elem;
+        sum_stats.push_back(sum);
+    }
+
+    std::cout<<"Min: "<<*std::min_element(sum_stats.begin(), sum_stats.end())/BATCH_SIZE_<<" ms\n";
+    std::cout<<"Max: "<<*std::max_element(sum_stats.begin(), sum_stats.end())/BATCH_SIZE_<<" ms\n";
+    unsigned mean=0;
+    for(int i=0; i<sum_stats.size(); i++)
+        mean += sum_stats[i];
+    mean /= sum_stats.size();
+    std::cout<<"Avg: "<<mean/BATCH_SIZE_<<" ms\t"<<1000/(mean/BATCH_SIZE_)<<" FPS\n";
+
+    std::ofstream wf("lidar_point_pillars_timing.dat", std::ios::out | std::ios::app);
+    for(auto stat : stats_){
+        for(auto stat_elem : stat)
+            wf << stat_elem << ' ';
+        wf << std::endl;
+    }
 }

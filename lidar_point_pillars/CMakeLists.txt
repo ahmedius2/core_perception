@@ -8,6 +8,8 @@ option(CUDA_AVAIL "CUDA available" OFF)
 find_package(CUDA)
 find_package(autoware_build_flags REQUIRED)
 
+set(ENV{AUTOWARE_COMPILE_WITH_CUDA} 1)
+
 AW_CHECK_CUDA()
 
 if (USE_CUDA)
@@ -111,6 +113,7 @@ if(TRT_AVAIL AND CUDA_AVAIL AND CUDNN_AVAIL)
   )
 
   target_link_libraries(point_pillars_lib
+    ${catkin_LIBRARIES}
     ${NVINFER}
     ${NVONNXPARSERS}
     ${CUDA_LIBRARIES}

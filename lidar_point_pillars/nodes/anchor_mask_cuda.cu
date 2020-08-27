@@ -185,6 +185,7 @@ void AnchorMaskCuda::doAnchorMaskCuda(int* dev_sparse_pillar_map, int* dev_cumsu
   const float* dev_box_anchors_min_x, const float* dev_box_anchors_min_y,
   const float* dev_box_anchors_max_x, const float* dev_box_anchors_max_y, int* dev_anchor_mask)
 {
+  // these two scan operations are doing cumsum
   scan_x<<<NUM_INDS_FOR_SCAN_, NUM_INDS_FOR_SCAN_/2, NUM_INDS_FOR_SCAN_*sizeof(int)>>>(dev_cumsum_along_x, dev_sparse_pillar_map, NUM_INDS_FOR_SCAN_);
   scan_y<<<NUM_INDS_FOR_SCAN_, NUM_INDS_FOR_SCAN_/2, NUM_INDS_FOR_SCAN_*sizeof(int)>>>(dev_cumsum_along_y, dev_cumsum_along_x,    NUM_INDS_FOR_SCAN_);
   GPU_CHECK(cudaMemcpy(dev_sparse_pillar_map, dev_cumsum_along_y,  NUM_INDS_FOR_SCAN_*NUM_INDS_FOR_SCAN_*sizeof(int), cudaMemcpyDeviceToDevice ) );

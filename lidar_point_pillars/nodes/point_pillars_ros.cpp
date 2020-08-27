@@ -33,7 +33,7 @@
 PointPillarsROS::PointPillarsROS()
   : private_nh_("~")
   , has_subscribed_baselink_(false)
-  , NUM_POINT_FEATURE_(4)
+  , NUM_POINT_FEATURE_(4) // these four things are x,y,z, and intensity
   , OUTPUT_NUM_BOX_FEATURE_(7)
   , TRAINED_SENSOR_HEIGHT_(1.73f)
   , NORMALIZING_INTENSITY_VALUE_(255.0f)
