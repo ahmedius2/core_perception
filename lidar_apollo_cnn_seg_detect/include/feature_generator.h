@@ -18,9 +18,6 @@
 
 #include "caffe/caffe.hpp"
 
-#include "NvCaffeParser.h"
-#include "NvInfer.h"
-
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 
@@ -34,8 +31,7 @@ public:
   FeatureGenerator(){}
   ~FeatureGenerator(){}
 
-  //bool init(caffe::Blob<float>* out_blob);
-  bool init(nvinfer1::ITensor* out_blob);
+  bool init(caffe::Blob<float>* out_blob);
   void generate(
       const pcl::PointCloud<pcl::PointXYZI>::Ptr& pc_ptr);
 private:
@@ -57,8 +53,7 @@ private:
   float* nonempty_data_ = nullptr;
 
   // output Caffe blob
-  //caffe::Blob<float>* out_blob_ = nullptr;
-  nvinfer1::ITensor* out_blob_ = nullptr;
+  caffe::Blob<float>* out_blob_ = nullptr;
 
   std::vector<float> log_table_;
 

@@ -46,9 +46,9 @@
 #include <tkDNN/MobilenetDetection.h>
 #include <tkDNN/Yolo3Detection.h>
 
-//#define LIMIT_EXEC
+#define LIMIT_EXEC
 #ifdef LIMIT_EXEC
-#define MESSAGES_TO_PROCESS 3639u
+#define MESSAGES_TO_PROCESS 1213u
 #endif
 
 namespace tkdnn {

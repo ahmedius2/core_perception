@@ -1,3 +1,0 @@
-- name: vision_trt_yolov3_detect
-  publish: [/detected_objects]
-  subscribe: [/config/Yolo3, /image_raw]

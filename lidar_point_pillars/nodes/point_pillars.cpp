@@ -648,7 +648,8 @@ void PointPillars::printStats()
     mean /= sum_stats.size();
     std::cout<<"Avg: "<<mean/BATCH_SIZE_<<" ms\t"<<1000/(mean/BATCH_SIZE_)<<" FPS\n";
 
-    std::ofstream wf("lidar_point_pillars_timing.dat", std::ios::out | std::ios::app);
+    // Leave the quantization as unknown for now
+    std::ofstream wf("lidar-point-pillars_unknown_timing.dat", std::ios::out);
     for(auto stat : stats_){
         for(auto stat_elem : stat)
             wf << stat_elem << ' ';
