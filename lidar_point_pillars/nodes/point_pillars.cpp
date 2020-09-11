@@ -590,7 +590,7 @@ void PointPillars::doInference(const float* in_points_array, const int in_num_po
       pfe_context_->enqueue(BATCH_SIZE_, pfe_buffers_, stream, nullptr);
       // output is (float*)pfe_buffers_[8]
 
-      cudaStreamSynchronize(stream);
+      //cudaStreamSynchronize(stream); // test
       GPU_CHECK(cudaMemset(dev_scattered_feature_, 0, RPN_INPUT_SIZE_ * sizeof(float)));
       scatter_cuda_ptr_->doScatterCuda(host_pillar_count_[0], dev_x_coors_, dev_y_coors_, (float*)pfe_buffers_[8],
                                        dev_scattered_feature_);
@@ -602,7 +602,7 @@ void PointPillars::doInference(const float* in_points_array, const int in_num_po
                                 cudaMemcpyDeviceToDevice, stream));
 
       rpn_context_->enqueue(BATCH_SIZE_, rpn_buffers_, stream, nullptr);
-      cudaStreamSynchronize(stream);// test
+      //cudaStreamSynchronize(stream);// test
 
       GPU_CHECK(cudaMemset(dev_filter_count_, 0, sizeof(int)));
       LPP_TQUERY(stat)
@@ -615,17 +615,19 @@ void PointPillars::doInference(const float* in_points_array, const int in_num_po
           dev_filtered_box_, dev_filtered_score_, dev_filtered_dir_, dev_box_for_nms_, dev_filter_count_, out_detections);
 
       // release the stream and the buffers
-      cudaStreamDestroy(stream); //test
+      //cudaStreamDestroy(stream); //test
       LPP_TQUERY(stat)
   }
 
-#ifdef LIMIT_EXEC
   static auto processed_messages=0;
-  if(++processed_messages >= MESSAGES_TO_PROCESS){
+  if(++processed_messages % MESSAGES_TO_PRINT_STATS == 1){
       printStats();
+#ifdef LIMIT_EXEC
       ros::shutdown();
-  }
+
 #endif
+
+  }
 }
 
 void PointPillars::printStats()

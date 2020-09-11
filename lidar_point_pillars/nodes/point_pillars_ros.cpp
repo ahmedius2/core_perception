@@ -49,14 +49,17 @@ PointPillarsROS::PointPillarsROS()
   private_nh_.param<std::string>("pfe_onnx_file", pfe_onnx_file_, "");
   private_nh_.param<std::string>("rpn_onnx_file", rpn_onnx_file_, "");
 
+  ROS_INFO("Starting to contruct PointPillars");
   point_pillars_ptr_.reset(new PointPillars(reproduce_result_mode_, score_threshold_, nms_overlap_threshold_,
                                             pfe_onnx_file_, rpn_onnx_file_));
+  ROS_INFO("Finished to contruct PointPillars");
+
 }
 
 void PointPillarsROS::createROSPubSub()
 {
-  sub_points_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_raw", 1, &PointPillarsROS::pointsCallback, this);
-  pub_objects_ = nh_.advertise<autoware_msgs::DetectedObjectArray>("/detection/lidar_detector/objects", 1);
+  sub_points_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_raw", 100, &PointPillarsROS::pointsCallback, this);
+  pub_objects_ = nh_.advertise<autoware_msgs::DetectedObjectArray>("/detection/lidar_detector/objects", 100);
 }
 
 geometry_msgs::Pose PointPillarsROS::getTransformedPose(const geometry_msgs::Pose& in_pose, const tf::Transform& tf)

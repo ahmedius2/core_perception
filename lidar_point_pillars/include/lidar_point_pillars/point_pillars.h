@@ -48,10 +48,10 @@
 #include "lidar_point_pillars/scatter_cuda.h"
 #include "lidar_point_pillars/postprocess_cuda.h"
 
-#define LIMIT_EXEC
-#ifdef LIMIT_EXEC
-#define MESSAGES_TO_PROCESS 1213u
-#endif
+#include "kitti_tracklets.h"
+
+//#define LIMIT_EXEC
+#define MESSAGES_TO_PRINT_STATS 50u
 
 // Simple Timer
 #define LPP_TSTART timespec start, end;                               \

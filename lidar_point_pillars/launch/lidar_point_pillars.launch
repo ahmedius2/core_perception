@@ -17,8 +17,8 @@
     <param name="pfe_onnx_file"   value="$(arg pfe_onnx_file)" />
     <param name="rpn_onnx_file"   value="$(arg rpn_onnx_file)" />
   </node>
-
+<!--
   <node pkg="detected_objects_visualizer" type="visualize_detected_objects" name="point_pillars_visualization_01"
         output="screen" ns="/detection/lidar_detector" />
-
+-->
 </launch>
