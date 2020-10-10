@@ -308,6 +308,17 @@ private:
   */
   void putAnchorsInDeviceMemory();
 
+  void printNetwork(nvinfer1::INetworkDefinition* net_def);
+
+  void printTensor(nvinfer1::ITensor* tensor);
+
+  void printLayer(nvinfer1::ILayer* layer);
+
+  void printWeights(nvinfer1::Weights* weights);
+
+  void printDims(nvinfer1::Dims* dims);
+
+
 public:
   /**
   * @brief Constructor

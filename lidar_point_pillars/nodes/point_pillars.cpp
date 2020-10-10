@@ -17,6 +17,7 @@
 // headers in STL
 #include <chrono>
 #include <iostream>
+#include <type_traits>
 
 // headers in local files
 #include "lidar_point_pillars/point_pillars.h"
@@ -349,6 +350,7 @@ void PointPillars::putAnchorsInDeviceMemory()
   GPU_CHECK(cudaMemcpy(dev_anchors_ro_, anchors_ro_, NUM_ANCHOR_ * sizeof(float), cudaMemcpyHostToDevice));
 }
 
+
 void PointPillars::convertAnchors2BoxAnchors(float* anchors_px, float* anchors_py, float* anchors_dx, float* anchors_dy,
                                              float* box_anchors_min_x_, float* box_anchors_min_y_,
                                              float* box_anchors_max_x_, float* box_anchors_max_y_)
@@ -402,6 +404,7 @@ void PointPillars::initTRT()
   {
     std::cerr<<"Failed to create TensorRT Runtime object."<<std::endl;
   }
+
   pfe_engine_ =
       pfe_runtime_->deserializeCudaEngine(pfe_trt_model_stream->data(), pfe_trt_model_stream->size(), nullptr);
   rpn_engine_ =
@@ -410,10 +413,14 @@ void PointPillars::initTRT()
   {
     std::cerr << "Failed to create TensorRT Engine." << std::endl;
   }
+
+  nvinfer1::INetworkDefinition* network;
+
   pfe_trt_model_stream->destroy();
   rpn_trt_model_stream->destroy();
   pfe_context_ = pfe_engine_->createExecutionContext();
   rpn_context_ = rpn_engine_->createExecutionContext();
+
   if (pfe_context_ == nullptr || rpn_context_ == nullptr)
   {
     std::cerr << "Failed to create TensorRT Execution Context." << std::endl;;
@@ -431,12 +438,12 @@ void PointPillars::onnxToTRTModel(const std::string& model_file,             // 
 		  1U << static_cast<int>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
   auto* config = builder->createBuilderConfig();
 
-#ifdef FP16_MODE
-  if(builder->platformHasFastFp16()) {
-      builder->setHalf2Mode(true);
-      config->setFlag(nvinfer1::BuilderFlag::kFP16);
-  }
-#endif
+//#ifdef FP16_MODE
+//  if(builder->platformHasFastFp16()) {
+//      builder->setHalf2Mode(true);
+//      config->setFlag(nvinfer1::BuilderFlag::kFP16);
+//  }
+//#endif
 
   auto parser = nvonnxparser::createParser(*network, g_logger_);
 
@@ -451,8 +458,115 @@ void PointPillars::onnxToTRTModel(const std::string& model_file,             // 
   builder->setMaxBatchSize(BATCH_SIZE_);
   config->setMaxWorkspaceSize(1 << 20);
 
-  nvinfer1::ICudaEngine* engine = builder->buildEngineWithConfig(*network,*config);
+  // Get concat layer of RPN, modify it
+//  auto* clayer = network->getLayer(60);
+//  if(clayer!=nullptr && clayer->getType() == nvinfer1::LayerType::kCONCATENATION){
+//    auto *concat_l = dynamic_cast<nvinfer1::IConcatenationLayer*>(clayer);
+//    nvinfer1::ITensor* second_input = concat_l->getInput(1);
+//    concat_l->setInput(2,*second_input);
 
+//    nvinfer1::ITensor* first_input = concat_l->getInput(0);
+//    concat_l->setInput(1,*first_input);
+//    concat_l->setInput(2,*first_input);
+//    std::cout << "\nMODIFIED CONCATANATE LAYER 60\n";
+//    concat_l->setInput(2,*first_input);
+    // 1x128x248x216
+//    nvinfer1::Dims dims;
+//    dims.nbDims=4;
+//    int arr[4] = {1,128,248,216};
+//    std::memcpy(dims.d, arr, sizeof(int)*4);
+//    nvinfer1::Weights weights;
+//    weights.type = concat_l->getInput(0)->getType();//nvinfer1::DataType::kFLOAT;
+//    weights.count = dims.d[0] * dims.d[1] * dims.d[2] * dims.d[3];
+//    weights.values = static_cast<void*>(new float[weights.count]());
+//    nvinfer1::IConstantLayer* const_layer = network->addConstant(dims, weights);
+//    concat_l->setInput(1,*(const_layer->getOutput(0)));
+//    concat_l->setInput(2,*(const_layer->getOutput(0)));
+//  }
+
+//  unsigned layernums[3] = {61,62,65}; // bounding box, class, dir
+//  for(auto i=0; i<3; ++i){
+//      auto* conv_l = dynamic_cast<nvinfer1::IConvolutionLayer*>(
+//                  network->getLayer(layernums[i]));
+//      if(conv_l!=nullptr && conv_l->getType() == nvinfer1::LayerType::kCONVOLUTION){
+//        std::cout << "\nSSD Convolution " << i << ":";
+//        std::cout << "\nNbOutputMaps: " << conv_l->getNbOutputMaps();
+//        std::cout << "\nNbOutputs: " << conv_l->getNbOutputs();
+//        std::cout << "\nNbGroups: " << conv_l->getNbGroups();
+//        std::cout << "\nPaddingMode: " << static_cast<int>(conv_l->getPaddingMode());
+//        std::cout << "\nPaddingNd(Dims): ";
+//        nvinfer1::Dims dm = conv_l->getPaddingNd();
+//        printDims(&dm);
+//        std::cout << "\nPrePadding(Dims): ";
+//        dm = conv_l->getPrePadding();
+//        printDims(&dm);
+//        std::cout << "\nPostPadding(Dims): ";
+//        dm = conv_l->getPostPadding();
+//        printDims(&dm);
+//        std::cout << "\nStrideNd(Dims): ";
+//        dm = conv_l->getStrideNd();
+//        printDims(&dm);
+//        std::cout << "\nDilationNd(Dims): ";
+//        dm = conv_l->getDilationNd();
+//        printDims(&dm);
+//        std::cout << "\nKernelSizeNd(Dims): ";
+//        dm = conv_l->getKernelSizeNd();
+//        printDims(&dm);
+//        std::cout << "\nKernelWeights: ";
+//        nvinfer1::Weights w = conv_l->getKernelWeights();
+//        printWeights(&w);
+//        std::cout << "\nBiasWeights: ";
+//        w = conv_l->getBiasWeights();
+//        printWeights(&w);
+//        std::cout << std::endl;
+//      }
+//  }
+
+
+
+  // Get batch norm of middle in RPN
+//  auto* layer = network->getLayer(58);
+//  if(layer!=nullptr && layer->getType() == nvinfer1::LayerType::kSCALE){
+//      auto *batch_norm_l = dynamic_cast<nvinfer1::IScaleLayer*>(layer);
+//      std::cout << "\n\n\nRPN Layer 58, BatchNorm\nChannel Axis:" <<  batch_norm_l->getChannelAxis()
+//                << "\nMode:" << static_cast<int>(batch_norm_l->getMode())
+//                << "\nPower weights (size=";
+//      nvinfer1::Weights weights = batch_norm_l->getPower();
+//      std::cout << weights.count << "): ";
+//      printWeights(&weights);
+
+//      std::cout << "\nScale weights (size=";
+//      weights = batch_norm_l->getScale();
+//      std::cout << weights.count << "): ";
+//      printWeights(&weights);
+
+//      std::cout << "\nShift weights (size=";
+//      weights = batch_norm_l->getShift();
+//      std::cout << weights.count << "): ";
+//      printWeights(&weights);
+
+//      std::cout << "\nMODIFICATION TIME! SET EVERYTHING TO 0!";
+//      if(batch_norm_l->getPower().count > 0){
+//          nvinfer1::Weights weights_new;
+//          weights_new.type = batch_norm_l->getPower().type;
+//          weights_new.count = batch_norm_l->getPower().count;
+//          weights_new.values = new float[weights_new.count]();
+//          batch_norm_l->setPower(weights_new);
+//      }
+
+//      if(batch_norm_l->getScale().count > 0){
+//          nvinfer1::Weights weights_new2;
+//          weights_new2.type = batch_norm_l->getScale().type;
+//          weights_new2.count = batch_norm_l->getScale().count;
+//          weights_new2.values = new float[weights_new2.count]();
+//          batch_norm_l->setScale(weights_new2);
+//      }
+
+//  }
+
+  printNetwork(network);
+
+  nvinfer1::ICudaEngine* engine = builder->buildEngineWithConfig(*network,*config);
   parser->destroy();
 
   // serialize the engine, then close everything down
@@ -461,6 +575,90 @@ void PointPillars::onnxToTRTModel(const std::string& model_file,             // 
   config->destroy();
   network->destroy();
   builder->destroy();
+}
+
+
+
+void PointPillars::printNetwork(nvinfer1::INetworkDefinition *net_def)
+{
+
+    std::cout << "**Network " << net_def->getName() << std::endl;
+    std::cout << "**Input tensors of network: " << std::endl;
+    for(auto i = 0 ; i < net_def->getNbInputs(); ++i){
+        printTensor(net_def->getInput(i));
+    }
+    std::cout << "**Layers: " << std::endl;
+    for(auto i = 0 ; i < net_def->getNbLayers(); ++i){
+        std::cout << i << "-";
+        printLayer(net_def->getLayer(i));
+    }
+    std::cout << "**Output tensors of network: " << std::endl;
+    for(auto i = 0 ; i < net_def->getNbOutputs(); ++i){
+        printTensor(net_def->getOutput(i));
+    }
+}
+
+void PointPillars::printTensor(nvinfer1::ITensor *tensor)
+{
+    std::cout << tensor->getName();
+    std::cout << " Dims: ";
+    auto d = tensor->getDimensions();
+    printDims(&d);
+
+    // these are Type:float32, AllowedFormats:63, BroadcastAcrossBatch:False by default
+//    std::cout << " Type:" << static_cast<int>(tensor->getType())
+//              << " AllowedFormats:" << tensor->getAllowedFormats()
+//              << " BroadcastAcrossBatch:" << tensor->getBroadcastAcrossBatch();
+    if(tensor->dynamicRangeIsSet())
+        std::cout << " DynamicRangeMinMax:" << tensor->getDynamicRangeMin()
+                  << " " << tensor->getDynamicRangeMax();
+    // all of them are execution tensor by default
+//    std::cout << " ExecTensor:" << (tensor->isExecutionTensor() ? "Y" : "N") << std::endl;
+}
+
+void PointPillars::printLayer(nvinfer1::ILayer *layer)
+{
+    std::cout << layer->getName() << " Type: " << static_cast<int>(layer->getType())  << std::endl;
+//              << " Precision: " << static_cast<int>(layer->getPrecision()) << std::endl;
+    std::cout << "* Input tensors of layer: ";
+    for(auto i = 0 ; i < layer->getNbInputs(); ++i){
+        printTensor(layer->getInput(i));
+        std::cout << " | ";
+    }
+    //0 2 5 7 8 13 14
+    std::cout << "\n*Output tensors of layer: ";
+    for(auto i = 0 ; i < layer->getNbOutputs(); ++i){
+        printTensor(layer->getOutput(i));
+        std::cout << " | ";
+    }
+    std::cout << std::endl;
+}
+
+void PointPillars::printWeights(nvinfer1::Weights *weights)
+{
+    if(weights->type != nvinfer1::DataType::kFLOAT){
+        std::cout << "WARNING! Can't print weights!";
+        return;
+    }
+    else if(sizeof(float) != 4){
+        std::cout << "ERROR! float is not 32 bits in this system!";
+        return;
+    }
+
+    std::cout << " (size:" << weights->count << ") ";
+
+    auto *vals = static_cast<const float*>(weights->values);
+    for(auto i=0; i<weights->count; ++i){
+      std::cout << vals[i] << " ";
+    }
+
+}
+
+void PointPillars::printDims(nvinfer1::Dims *dims)
+{
+    std::cout << dims->d[0];
+    for(auto i = 1 ; i < dims->nbDims; ++i)
+        std::cout << "x" << dims->d[i];
 }
 
 void PointPillars::preprocessCPU(const float* in_points_array, const int in_num_points)
