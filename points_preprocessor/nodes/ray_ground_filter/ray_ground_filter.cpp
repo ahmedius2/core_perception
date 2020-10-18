@@ -30,6 +30,8 @@
 #include <pcl/filters/extract_indices.h>
 #include <velodyne_pointcloud/point_types.h>
 #include "autoware_config_msgs/ConfigRayGroundFilter.h"
+#include "sched_server/sched_client.hpp"
+#include "sched_server/time_profiling_spinner.h"
 
 #include <opencv2/core/version.hpp>
 #if (CV_MAJOR_VERSION == 3)
@@ -441,7 +443,11 @@ void RayGroundFilter::Run()
   groundless_points_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(no_ground_topic, 2);
   ground_points_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(ground_topic, 2);
 
-  ROS_INFO("Ready");
+  SchedClient::ConfigureSchedOfCallingThread();
 
-  ros::spin();
+  ROS_INFO("Ready");
+  TimeProfilingSpinner spinner(10,5);
+  spinner.spinAndProfileUntilShutdown();
+  spinner.saveProfilingData();
+  //ros::spin();
 }

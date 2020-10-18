@@ -18,10 +18,22 @@
 
 #include <ros/ros.h>
 #include "points_preprocessor/ray_ground_filter/ray_ground_filter.h"
+#include <signal.h>
+
+void mySigintHandler(int sig)
+{
+  // Do some custom action.
+  // For example, publish a stop message to some other nodes.
+
+  // All the default sigint handler does is call shutdown()
+  ROS_INFO("Signal has come.");
+  ros::shutdown();
+}
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "ray_ground_filter");
+  ros::init(argc, argv, "ray_ground_filter", ros::init_options::NoSigintHandler);
+  signal(SIGINT, mySigintHandler);
   RayGroundFilter app;
 
   app.Run();

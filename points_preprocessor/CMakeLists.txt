@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_eigen
   tf2_ros
   velodyne_pointcloud
+  sched_server
 )
 
 catkin_package()
