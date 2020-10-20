@@ -72,6 +72,9 @@
 //headers in Autoware Health Checker
 #include <autoware_health_checker/health_checker/health_checker.h>
 
+#include "sched_server/time_profiling_spinner.h"
+#include "sched_server/sched_client.hpp"
+
 #define PREDICT_POSE_THRESHOLD 0.5
 
 #define Wa 0.4
@@ -427,6 +430,7 @@ static void param_callback(const autoware_config_msgs::ConfigNDT::ConstPtr& inpu
 static void map_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 {
   // if (map_loaded == 0)
+  std::cout << "map callback" << std::endl;
   if (points_map_num != input->width)
   {
     std::cout << "Update points_map." << std::endl;
@@ -534,6 +538,7 @@ static void map_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     }
 #endif
     map_loaded = 1;
+    std::cout << "map is loaded" << std::endl;
   }
 }
 
@@ -1675,8 +1680,12 @@ int main(int argc, char** argv)
 
   pthread_t thread;
   pthread_create(&thread, NULL, thread_func, NULL);
-
-  ros::spin();
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+    DEFAULT_EXEC_TIME_MINUTES);
+  spinner.spinAndProfileUntilShutdown();
+  spinner.saveProfilingData();
+  //ros::spin();
 
   return 0;
 }

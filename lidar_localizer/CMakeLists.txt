@@ -51,6 +51,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   tf
   velodyne_pointcloud
+  sched_server
 )
 
 catkin_package(

@@ -20,6 +20,8 @@
  *  Created on: April 4th, 2018
  */
 #include "vision_darknet_detect.h"
+#include "sched_server/sched_client.hpp"
+#include "sched_server/time_profiling_spinner.h"
 
 #if (CV_MAJOR_VERSION <= 2)
 #include <opencv2/contrib/contrib.hpp>
@@ -362,7 +364,12 @@ void Yolo3DetectorNode::Run()
 
     ROS_INFO_STREAM( __APP_NAME__ << "" );
 
-    ros::spin();
+    //ros::spin();
+    SchedClient::ConfigureSchedOfCallingThread();
+    TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+    DEFAULT_EXEC_TIME_MINUTES);
+    spinner.spinAndProfileUntilShutdown();
+    spinner.saveProfilingData();
     ROS_INFO("END Yolo");
 
 }

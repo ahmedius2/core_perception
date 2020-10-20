@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslint
   tf
   vector_map
+  sched_server
 )
 
 

@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   tf
   vector_map_server
+  sched_server
 )
 
 find_package(OpenMP)

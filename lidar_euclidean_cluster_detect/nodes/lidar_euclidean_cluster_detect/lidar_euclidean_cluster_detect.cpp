@@ -80,6 +80,9 @@
 
 #endif
 
+#include "sched_server/sched_client.hpp"
+#include "sched_server/time_profiling_spinner.h"
+
 #define __APP_NAME__ "euclidean_clustering"
 
 using namespace cv;
@@ -1063,5 +1066,10 @@ int main(int argc, char **argv)
   ros::Subscriber sub = h.subscribe(points_topic, 1, velodyne_callback);
 
   // Spin
-  ros::spin();
+  // ros::spin();
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+  DEFAULT_EXEC_TIME_MINUTES);
+  spinner.spinAndProfileUntilShutdown();
+  spinner.saveProfilingData();
 }

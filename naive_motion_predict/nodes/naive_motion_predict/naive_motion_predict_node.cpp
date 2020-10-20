@@ -15,11 +15,18 @@
  */
 
 #include "naive_motion_predict.h"
+#include "sched_server/sched_client.hpp"
+#include "sched_server/time_profiling_spinner.h"
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "naive_motion_predict");
   NaiveMotionPredict node;
-  ros::spin();
+  // ros::spin();
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+  DEFAULT_EXEC_TIME_MINUTES);
+  spinner.spinAndProfileUntilShutdown();
+  spinner.saveProfilingData();
   return 0;
 }

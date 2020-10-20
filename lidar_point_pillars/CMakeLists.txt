@@ -25,9 +25,9 @@ endif ()
 # set flags for TensorRT availability
 option(TRT_AVAIL "TensorRT available" OFF)
 # try to find the tensorRT modules
-find_library(NVINFER NAMES nvinfer HINTS /home/ahmet/other/TensorRT-7.0.0.11/lib)
-find_library(NVPARSERS NAMES nvparsers  HINTS /home/ahmet/other/TensorRT-7.0.0.11/lib)
-find_library(NVONNXPARSERS NAMES nvonnxparser  HINTS /home/ahmet/other/TensorRT-7.0.0.11/lib)
+find_library(NVINFER NAMES nvinfer HINTS /usr/lib/x86_64-linux-gnu)
+find_library(NVPARSERS NAMES nvparsers  HINTS /usr/lib/x86_64-linux-gnu)
+find_library(NVONNXPARSERS NAMES nvonnxparser  HINTS /usr/lib/x86_64-linux-gnu)
 
 if(NVINFER AND NVPARSERS AND NVONNXPARSERS)
   message("TensorRT is available!")

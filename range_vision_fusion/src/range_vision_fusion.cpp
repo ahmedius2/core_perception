@@ -21,6 +21,8 @@
  */
 
 #include "range_vision_fusion/range_vision_fusion.h"
+#include "sched_server/sched_client.hpp"
+#include "sched_server/time_profiling_spinner.h"
 
 cv::Point3f
 ROSRangeVisionFusionApp::TransformPoint(const geometry_msgs::Point &in_point, const tf::StampedTransform &in_transform)
@@ -403,6 +405,7 @@ ROSRangeVisionFusionApp::FuseRangeVisionDetections(
       fused_objects.objects.push_back(range_in_cv.objects[vision_range_closest[i]]);
     }
   }
+  std::cout << "Added " << fused_objects.objects.size() << " fused objects\n";
   for (size_t i = 0; i < used_vision_detections.size(); i++)
   {
     if (!used_vision_detections[i])
@@ -420,7 +423,8 @@ ROSRangeVisionFusionApp::FuseRangeVisionDetections(
   {
     object.valid = true;
   }
-
+  std::cout << "There are " << fused_objects.objects.size() << " objects in total\n";
+  
   return fused_objects;
 }
 
@@ -700,7 +704,12 @@ ROSRangeVisionFusionApp::Run()
 
   ROS_INFO("[%s] Ready. Waiting for data...", __APP_NAME__);
 
-  ros::spin();
+  //ros::spin();
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+  DEFAULT_EXEC_TIME_MINUTES);
+  spinner.spinAndProfileUntilShutdown();
+  spinner.saveProfilingData();
 
   ROS_INFO("[%s] END", __APP_NAME__);
 }

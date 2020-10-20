@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   velodyne_pointcloud
+  sched_server
 )
 
 add_message_files(

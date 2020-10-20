@@ -15,12 +15,19 @@
  */
 
 #include <imm_ukf_pda/imm_ukf_pda.h>
+#include "sched_server/sched_client.hpp"
+#include "sched_server/time_profiling_spinner.h"
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "imm_ukf_pda_tracker");
   ImmUkfPda app;
   app.run();
-  ros::spin();
+//  ros::spin();
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+  DEFAULT_EXEC_TIME_MINUTES);
+  spinner.spinAndProfileUntilShutdown();
+  spinner.saveProfilingData();
   return 0;
 }

@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   tf
+  sched_server
 )
 
 catkin_package()

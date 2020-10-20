@@ -28,6 +28,8 @@
 #include <chrono>
 
 #include "points_downsampler.h"
+#include "sched_server/time_profiling_spinner.h"
+#include "sched_server/sched_client.hpp"
 
 #define MAX_MEASUREMENT_RANGE 200.0
 
@@ -153,7 +155,12 @@ int main(int argc, char** argv)
   ros::Subscriber config_sub = nh.subscribe("config/voxel_grid_filter", 10, config_callback);
   ros::Subscriber scan_sub = nh.subscribe(POINTS_TOPIC, 10, scan_callback);
 
-  ros::spin();
+//  ros::spin();
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+                               DEFAULT_EXEC_TIME_MINUTES);
+  spinner.spinAndProfileUntilShutdown();
+  spinner.saveProfilingData();
 
   return 0;
 }
