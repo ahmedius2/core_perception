@@ -29,6 +29,9 @@
     <param name="output_log_data" value="$(arg output_log_data)" />
     <param name="gnss_reinit_fitness" value="$(arg gnss_reinit_fitness)" />
     <remap from="/points_raw" to="/sync_drivers/points_raw" if="$(arg sync)" />
+    <!-- These are added later! Might not be a good idea for all cases -->
+    <remap from="/estimate_twist" to="/current_velocity"/>
+    <remap from="/ndt_pose" to="/current_pose"/>
   </node>
 
 </launch>

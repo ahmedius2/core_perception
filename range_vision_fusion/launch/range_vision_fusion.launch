@@ -10,7 +10,7 @@
   <arg name="use_vector_map" default="false"/>
   <arg name="namespace" default="/detection/fusion_tools"/>
 
-  <node name="range_vision_fusion_01" pkg="range_vision_fusion" type="range_vision_fusion" output="screen">
+  <node name="range_vision_fusion_01" pkg="range_vision_fusion" type="range_vision_fusion" output="log">
     <param name="detected_objects_range" value="$(arg detected_objects_range)"/>
     <param name="detected_objects_vision" value="$(arg detected_objects_vision)"/>
     <param name="camera_info_src" value="$(arg camera_info_src)"/>
@@ -19,7 +19,7 @@
     <param name="sync_topics" value="$(arg sync_topics)"/>
     <param name="overlap_threshold" value="$(arg overlap_threshold)"/>
   </node>
-
+<!--
   <group if="$(arg use_vector_map)">
     <node name="object_roi_filter_range_fusion" pkg="roi_object_filter" type="roi_object_filter"
           output="screen" ns="$(arg namespace)">
@@ -38,4 +38,5 @@
       <param name="objects_src_topic" value="/objects"/>
     </node>
   </group>
+-->
 </launch>

@@ -21,8 +21,8 @@
  */
 
 #include "range_vision_fusion/range_vision_fusion.h"
-#include "sched_server/sched_client.hpp"
 #include "sched_server/time_profiling_spinner.h"
+#include <ros/transport_hints.h>
 
 cv::Point3f
 ROSRangeVisionFusionApp::TransformPoint(const geometry_msgs::Point &in_point, const tf::StampedTransform &in_transform)
@@ -653,7 +653,8 @@ ROSRangeVisionFusionApp::InitializeROSIo(ros::NodeHandle &in_private_handle)
   ROS_INFO("[%s] Subscribing to... %s", __APP_NAME__, camera_info_src.c_str());
   intrinsics_subscriber_ = in_private_handle.subscribe(camera_info_src,
                                                        1,
-                                                       &ROSRangeVisionFusionApp::IntrinsicsCallback, this);
+                                                       &ROSRangeVisionFusionApp::IntrinsicsCallback, this,
+                                                       ros::TransportHints().tcpNoDelay());
 
   ROS_INFO("[%s] Subscribing to... %s", __APP_NAME__, detected_objects_vision.c_str());
   ROS_INFO("[%s] Subscribing to... %s", __APP_NAME__, detected_objects_range.c_str());
@@ -662,21 +663,21 @@ ROSRangeVisionFusionApp::InitializeROSIo(ros::NodeHandle &in_private_handle)
     detections_range_subscriber_ = in_private_handle.subscribe(detected_objects_vision,
                                                                1,
                                                                &ROSRangeVisionFusionApp::VisionDetectionsCallback,
-                                                               this);
+                                                               this, ros::TransportHints().tcpNoDelay());
 
     detections_vision_subscriber_ = in_private_handle.subscribe(detected_objects_range,
                                                                 1,
                                                                 &ROSRangeVisionFusionApp::RangeDetectionsCallback,
-                                                                this);
+                                                                this, ros::TransportHints().tcpNoDelay());
   }
   else
   {
     vision_filter_subscriber_ = new message_filters::Subscriber<autoware_msgs::DetectedObjectArray>(node_handle_,
                                                                                                     detected_objects_vision,
-                                                                                                    1);
+                                                                                                    1, ros::TransportHints().tcpNoDelay());
     range_filter_subscriber_ = new message_filters::Subscriber<autoware_msgs::DetectedObjectArray>(node_handle_,
                                                                                                    detected_objects_range,
-                                                                                                   1);
+                                                                                                   1, ros::TransportHints().tcpNoDelay());
     detections_synchronizer_ =
       new message_filters::Synchronizer<SyncPolicyT>(SyncPolicyT(10),
                                                      *vision_filter_subscriber_,
@@ -705,7 +706,6 @@ ROSRangeVisionFusionApp::Run()
   ROS_INFO("[%s] Ready. Waiting for data...", __APP_NAME__);
 
   //ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
   TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
   DEFAULT_EXEC_TIME_MINUTES);
   spinner.spinAndProfileUntilShutdown();

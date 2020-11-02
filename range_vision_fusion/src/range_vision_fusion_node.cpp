@@ -21,10 +21,12 @@
  */
 
 #include "range_vision_fusion/range_vision_fusion.h"
+#include "sched_server/sched_client.hpp"
 
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, __APP_NAME__);
+  SchedClient::ConfigureSchedOfCallingThread();
 
   ROSRangeVisionFusionApp app;
 

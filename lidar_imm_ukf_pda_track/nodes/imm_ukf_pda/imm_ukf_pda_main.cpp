@@ -21,10 +21,10 @@
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "imm_ukf_pda_tracker");
+  SchedClient::ConfigureSchedOfCallingThread();
   ImmUkfPda app;
   app.run();
 //  ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
   TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
   DEFAULT_EXEC_TIME_MINUTES);
   spinner.spinAndProfileUntilShutdown();

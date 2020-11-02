@@ -102,15 +102,15 @@ static void GNSSCallback(const sensor_msgs::NavSatFixConstPtr &msg)
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "fix2tfpose");
+  SchedClient::ConfigureSchedOfCallingThread();
   ros::NodeHandle nh;
   ros::NodeHandle private_nh("~");
   private_nh.getParam("plane", _plane);
-  pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("gnss_pose", 1000);
-  stat_publisher = nh.advertise<std_msgs::Bool>("/gnss_stat", 1000);
-  ros::Subscriber gnss_pose_subscriber = nh.subscribe("fix", 100, GNSSCallback);
+  pose_publisher = nh.advertise<geometry_msgs::PoseStamped>("gnss_pose", 1);
+  stat_publisher = nh.advertise<std_msgs::Bool>("/gnss_stat", 1);
+  ros::Subscriber gnss_pose_subscriber = nh.subscribe("fix", 1, GNSSCallback, ros::TransportHints().tcpNoDelay());
 
   // ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
   TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
     DEFAULT_EXEC_TIME_MINUTES);
   spinner.spinAndProfileUntilShutdown();

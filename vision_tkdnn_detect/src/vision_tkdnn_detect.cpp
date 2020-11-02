@@ -20,7 +20,8 @@
  *  Created on: April 4th, 2018
  */
 #include "vision_tkdnn_detect.h"
-
+#include "sched_server/time_profiling_spinner.h"
+#include <ros/transport_hints.h>
 
 namespace tkdnn
 {
@@ -69,12 +70,12 @@ void BoundingBoxDetector::image_callback(const sensor_msgs::ImageConstPtr& msg)
     }
 
     publisher_objects_.publish(output_message);
-#ifdef LIMIT_EXEC
     if(++processed_messages_ == MESSAGES_TO_PROCESS){
         printStats();
+#ifdef LIMIT_EXEC
     	ros::shutdown();
-    }
 #endif
+    }
 
 
 }
@@ -143,11 +144,16 @@ void BoundingBoxDetector::Run()
     publisher_objects_ = node_handle_.advertise<autoware_msgs::DetectedObjectArray>("/detection/image_detector/objects", 1);
 
     ROS_INFO("Subscribing to... %s", image_raw_topic_str.c_str());
-    subscriber_image_raw_ = node_handle_.subscribe(image_raw_topic_str, 1, &BoundingBoxDetector::image_callback, this);
+    subscriber_image_raw_ = node_handle_.subscribe(image_raw_topic_str, 1, &BoundingBoxDetector::image_callback, this,
+                                                   ros::TransportHints().tcpNoDelay());
 
     ROS_INFO_STREAM( __APP_NAME__ << "" );
 
-    ros::spin();
+    TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
+      DEFAULT_EXEC_TIME_MINUTES);
+    spinner.spinAndProfileUntilShutdown();
+    spinner.saveProfilingData();
+    //ros::spin();
 
     ROS_INFO("END Yolo");
 

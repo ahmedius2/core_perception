@@ -33,7 +33,7 @@
        default="[0.5,1.1,1.6,2.1,2.6]"/><!-- Euclidean Clustering threshold distance for each segment -->
 
   <node pkg="lidar_euclidean_cluster_detect" type="lidar_euclidean_cluster_detect"
-        name="lidar_euclidean_cluster_detect" output="screen">
+        name="lidar_euclidean_cluster_detect" output="log">
     <param name="points_node"
            value="$(arg points_node)"/> <!-- Can be used to select which pointcloud node will be used as input for the clustering -->
     <param name="remove_ground" value="$(arg remove_ground)"/>
@@ -60,7 +60,7 @@
 
     <remap from="/points_raw" to="/sync_drivers/points_raw" if="$(arg sync)" />
   </node>
-
+<!--
   <group if="$(arg use_vector_map)">
     <node name="object_roi_filter_clustering" pkg="roi_object_filter" type="roi_object_filter"
           output="screen" ns="/detection/lidar_detector">
@@ -80,5 +80,5 @@
       <param name="objects_src_topic" value="/objects"/>
     </node>
   </group>
-
+-->
 </launch>

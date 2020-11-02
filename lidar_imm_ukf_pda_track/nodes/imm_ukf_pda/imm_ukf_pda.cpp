@@ -55,7 +55,7 @@ ImmUkfPda::ImmUkfPda()
 void ImmUkfPda::run()
 {
   pub_object_array_ = node_handle_.advertise<autoware_msgs::DetectedObjectArray>("/detection/objects", 1);
-  sub_detected_array_ = node_handle_.subscribe("/detection/fusion_tools/objects", 1, &ImmUkfPda::callback, this);
+  sub_detected_array_ = node_handle_.subscribe("/detection/fusion_tools/objects", 1, &ImmUkfPda::callback, this, ros::TransportHints().tcpNoDelay());
 
   if (use_vectormap_)
   {

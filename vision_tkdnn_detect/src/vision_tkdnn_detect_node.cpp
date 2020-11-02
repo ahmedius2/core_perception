@@ -19,6 +19,7 @@
  */
 
 #include "vision_tkdnn_detect.h"
+#include "sched_server/sched_client.hpp"
 
 #include <signal.h>
 
@@ -38,6 +39,8 @@ void bbdSignalHandler(int sig)
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "vision_tkdnn_detect", ros::init_options::NoSigintHandler);
+    SchedClient::ConfigureSchedOfCallingThread();
+
     signal(SIGINT, bbdSignalHandler);
     app = new tkdnn::BoundingBoxDetector();
 

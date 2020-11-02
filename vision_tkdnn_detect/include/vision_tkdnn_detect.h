@@ -46,10 +46,8 @@
 #include <tkDNN/MobilenetDetection.h>
 #include <tkDNN/Yolo3Detection.h>
 
-#define LIMIT_EXEC
-#ifdef LIMIT_EXEC
+//#define LIMIT_EXEC
 #define MESSAGES_TO_PROCESS 1213u
-#endif
 
 namespace tkdnn {
 
@@ -61,9 +59,7 @@ class BoundingBoxDetector {
 
     int num_batches_;
     std::string pretrained_model_file_;
-#ifdef LIMIT_EXEC
     unsigned processed_messages_=0;
-#endif
 
     // Network variables
     tk::dnn::Yolo3Detection yolo_;

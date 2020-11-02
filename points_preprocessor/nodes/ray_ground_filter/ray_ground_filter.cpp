@@ -443,7 +443,7 @@ void RayGroundFilter::Run()
   groundless_points_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(no_ground_topic, 2);
   ground_points_pub_ = node_handle_.advertise<sensor_msgs::PointCloud2>(ground_topic, 2);
 
-  SchedClient::ConfigureSchedOfCallingThread();
+  //SchedClient::ConfigureSchedOfCallingThread();
 
   ROS_INFO("Ready");
   TimeProfilingSpinner spinner(10,5);

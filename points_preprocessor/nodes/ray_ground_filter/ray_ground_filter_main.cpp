@@ -20,11 +20,12 @@
 #include "points_preprocessor/ray_ground_filter/ray_ground_filter.h"
 #include <signal.h>
 #include "sched_server/time_profiling_spinner.h"
-
+#include "sched_server/sched_client.hpp"
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "ray_ground_filter", ros::init_options::NoSigintHandler);
+  SchedClient::ConfigureSchedOfCallingThread();
   signal(SIGINT, TimeProfilingSpinner::signalHandler);
   RayGroundFilter app;
 

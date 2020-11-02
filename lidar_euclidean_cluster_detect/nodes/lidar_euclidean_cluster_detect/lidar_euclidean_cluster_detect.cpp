@@ -934,7 +934,8 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 int main(int argc, char **argv)
 {
   // Initialize ROS
-  ros::init(argc, argv, "euclidean_cluster");
+  ros::init(argc, argv, "lidar_euclidean_cluster_detect");
+  SchedClient::ConfigureSchedOfCallingThread();
 
   ros::NodeHandle h;
   ros::NodeHandle private_nh("~");
@@ -1063,11 +1064,11 @@ int main(int argc, char **argv)
   _velodyne_transform_available = false;
 
   // Create a ROS subscriber for the input point cloud
-  ros::Subscriber sub = h.subscribe(points_topic, 1, velodyne_callback);
+  ros::Subscriber sub = h.subscribe(points_topic, 1, velodyne_callback
+		  , ros::TransportHints().tcpNoDelay());
 
   // Spin
   // ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
   TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
   DEFAULT_EXEC_TIME_MINUTES);
   spinner.spinAndProfileUntilShutdown();

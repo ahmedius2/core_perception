@@ -131,6 +131,7 @@ static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "voxel_grid_filter");
+  SchedClient::ConfigureSchedOfCallingThread();
 
   ros::NodeHandle nh;
   ros::NodeHandle private_nh("~");
@@ -148,15 +149,16 @@ int main(int argc, char** argv)
   private_nh.param<double>("measurement_range", measurement_range, MAX_MEASUREMENT_RANGE);
 
   // Publishers
-  filtered_points_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_points", 10);
-  points_downsampler_info_pub = nh.advertise<points_downsampler::PointsDownsamplerInfo>("/points_downsampler_info", 1000);
+  filtered_points_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_points", 1);
+  points_downsampler_info_pub = nh.advertise<points_downsampler::PointsDownsamplerInfo>("/points_downsampler_info", 1);
 
   // Subscribers
-  ros::Subscriber config_sub = nh.subscribe("config/voxel_grid_filter", 10, config_callback);
-  ros::Subscriber scan_sub = nh.subscribe(POINTS_TOPIC, 10, scan_callback);
+  ros::Subscriber config_sub = nh.subscribe("config/voxel_grid_filter", 1, config_callback,
+		  ros::TransportHints().tcpNoDelay());
+  ros::Subscriber scan_sub = nh.subscribe(POINTS_TOPIC, 1, scan_callback,
+		  ros::TransportHints().tcpNoDelay());
 
 //  ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
   TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
                                DEFAULT_EXEC_TIME_MINUTES);
   spinner.spinAndProfileUntilShutdown();
