@@ -22,6 +22,7 @@
 
 #include "range_vision_fusion/range_vision_fusion.h"
 #include "sched_server/time_profiling_spinner.h"
+#include "sched_server/sched_client.hpp"
 #include <ros/transport_hints.h>
 
 cv::Point3f
@@ -706,8 +707,9 @@ ROSRangeVisionFusionApp::Run()
   ROS_INFO("[%s] Ready. Waiting for data...", __APP_NAME__);
 
   //ros::spin();
-  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
-  DEFAULT_EXEC_TIME_MINUTES);
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
+  false);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
 

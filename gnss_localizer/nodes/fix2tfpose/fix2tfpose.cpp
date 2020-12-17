@@ -102,7 +102,6 @@ static void GNSSCallback(const sensor_msgs::NavSatFixConstPtr &msg)
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "fix2tfpose");
-  SchedClient::ConfigureSchedOfCallingThread();
   ros::NodeHandle nh;
   ros::NodeHandle private_nh("~");
   private_nh.getParam("plane", _plane);
@@ -111,8 +110,9 @@ int main(int argc, char **argv)
   ros::Subscriber gnss_pose_subscriber = nh.subscribe("fix", 1, GNSSCallback, ros::TransportHints().tcpNoDelay());
 
   // ros::spin();
-  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
-    DEFAULT_EXEC_TIME_MINUTES);
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
+    false);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
   return 0;

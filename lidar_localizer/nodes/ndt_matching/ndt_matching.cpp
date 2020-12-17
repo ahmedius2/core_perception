@@ -1529,11 +1529,11 @@ void* thread_func(void* args)
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "ndt_matching");
-  SchedClient::ConfigureSchedOfCallingThread();
   pthread_mutex_init(&mutex, NULL);
 
   ros::NodeHandle nh;
   ros::NodeHandle private_nh("~");
+  
   health_checker_ptr_ = std::make_shared<autoware_health_checker::HealthChecker>(nh,private_nh);
   health_checker_ptr_->ENABLE();
   health_checker_ptr_->NODE_ACTIVATE();
@@ -1688,8 +1688,8 @@ int main(int argc, char** argv)
 
   pthread_t thread;
   pthread_create(&thread, NULL, thread_func, NULL);
-  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
-    DEFAULT_EXEC_TIME_MINUTES);
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ, true);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
   //ros::spin();

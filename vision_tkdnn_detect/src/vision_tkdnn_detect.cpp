@@ -21,6 +21,7 @@
  */
 #include "vision_tkdnn_detect.h"
 #include "sched_server/time_profiling_spinner.h"
+#include "sched_server/sched_client.hpp"
 #include <ros/transport_hints.h>
 
 namespace tkdnn
@@ -148,9 +149,9 @@ void BoundingBoxDetector::Run()
                                                    ros::TransportHints().tcpNoDelay());
 
     ROS_INFO_STREAM( __APP_NAME__ << "" );
-
-    TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
-      DEFAULT_EXEC_TIME_MINUTES);
+    
+    SchedClient::ConfigureSchedOfCallingThread();
+    TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ, true);
     spinner.spinAndProfileUntilShutdown();
     spinner.saveProfilingData();
     //ros::spin();

@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include <ros/ros.h>
+#include <signal.h>
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/PCLPointCloud2.h>
@@ -934,8 +935,8 @@ void velodyne_callback(const sensor_msgs::PointCloud2ConstPtr& in_sensor_cloud)
 int main(int argc, char **argv)
 {
   // Initialize ROS
-  ros::init(argc, argv, "lidar_euclidean_cluster_detect");
-  SchedClient::ConfigureSchedOfCallingThread();
+  ros::init(argc, argv, "lidar_euclidean_cluster_detect", ros::init_options::NoSigintHandler);
+  signal(SIGINT, TimeProfilingSpinner::signalHandler);
 
   ros::NodeHandle h;
   ros::NodeHandle private_nh("~");
@@ -1069,8 +1070,9 @@ int main(int argc, char **argv)
 
   // Spin
   // ros::spin();
-  TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
-  DEFAULT_EXEC_TIME_MINUTES);
+  SchedClient::ConfigureSchedOfCallingThread();
+  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
+  false);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
 }

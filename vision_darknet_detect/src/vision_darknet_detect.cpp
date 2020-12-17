@@ -366,8 +366,8 @@ void Yolo3DetectorNode::Run()
 
     //ros::spin();
     SchedClient::ConfigureSchedOfCallingThread();
-    TimeProfilingSpinner spinner(DEFAULT_CALLBACK_FREQ_HZ,
-    DEFAULT_EXEC_TIME_MINUTES);
+    TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
+    false);
     spinner.spinAndProfileUntilShutdown();
     spinner.saveProfilingData();
     ROS_INFO("END Yolo");
