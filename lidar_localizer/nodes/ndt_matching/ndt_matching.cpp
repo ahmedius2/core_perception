@@ -212,7 +212,8 @@ static autoware_msgs::NDTStat ndt_stat_msg;
 
 static double predict_pose_error = 0.0;
 
-static double _tf_x, _tf_y, _tf_z, _tf_roll, _tf_pitch, _tf_yaw;
+static float _tf_x, _tf_y, _tf_z, _tf_roll, _tf_pitch, _tf_yaw;
+static std::vector<float> _tf_baselink2primarylidar;
 static Eigen::Matrix4f tf_btol;
 
 static std::string _localizer = "velodyne";
@@ -227,6 +228,7 @@ static bool _use_imu = false;
 static bool _use_odom = false;
 static bool _imu_upside_down = false;
 static bool _output_log_data = false;
+static std::string _output_tf_frame_id = "base_link";
 
 static std::string _imu_topic = "/imu_raw";
 
@@ -845,10 +847,15 @@ static double calcDiffForRadian(const double lhs_rad, const double rhs_rad)
 
 static void odom_callback(const nav_msgs::Odometry::ConstPtr& input)
 {
-  // std::cout << __func__ << std::endl;
-
   odom = *input;
   odom_calc(input->header.stamp);
+}
+
+static void vehicle_twist_callback(const geometry_msgs::TwistStampedConstPtr& msg)
+{
+  odom.header = msg->header;
+  odom.twist.twist = msg->twist;
+  odom_calc(odom.header.stamp);
 }
 
 static void imuUpsideDown(const sensor_msgs::Imu::Ptr input)
@@ -1371,14 +1378,13 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     // Send TF "/base_link" to "/map"
     transform.setOrigin(tf::Vector3(current_pose.x, current_pose.y, current_pose.z));
     transform.setRotation(current_q);
-    //    br.sendTransform(tf::StampedTransform(transform, current_scan_time, "/map", "/base_link"));
     if (_use_local_transform == true)
     {
-      br.sendTransform(tf::StampedTransform(local_transform * transform, current_scan_time, "/map", "/base_link"));
+      br.sendTransform(tf::StampedTransform(local_transform * transform, current_scan_time, "map", _output_tf_frame_id));
     }
     else
     {
-      br.sendTransform(tf::StampedTransform(transform, current_scan_time, "/map", "/base_link"));
+      br.sendTransform(tf::StampedTransform(transform, current_scan_time, "map", _output_tf_frame_id));
     }
 
     matching_end = std::chrono::system_clock::now();
@@ -1566,43 +1572,32 @@ int main(int argc, char** argv)
   private_nh.getParam("imu_upside_down", _imu_upside_down);
   private_nh.getParam("imu_topic", _imu_topic);
   private_nh.param<double>("gnss_reinit_fitness", _gnss_reinit_fitness, 500.0);
-
+  private_nh.getParam("output_tf_frame_id", _output_tf_frame_id);
 
   if (nh.getParam("localizer", _localizer) == false)
   {
     std::cout << "localizer is not set." << std::endl;
     return 1;
   }
-  if (nh.getParam("tf_x", _tf_x) == false)
+
+  if (!nh.getParam("tf_baselink2primarylidar", _tf_baselink2primarylidar))
   {
-    std::cout << "tf_x is not set." << std::endl;
+    std::cout << "baselink to primary lidar transform is not set." << std::endl;
     return 1;
   }
-  if (nh.getParam("tf_y", _tf_y) == false)
-  {
-    std::cout << "tf_y is not set." << std::endl;
+
+  // translation x, y, z, yaw, pitch, and roll
+  if (_tf_baselink2primarylidar.size() != 6) {
+    std::cout << "baselink to primary lidar transform is not valid." << std::endl;
     return 1;
   }
-  if (nh.getParam("tf_z", _tf_z) == false)
-  {
-    std::cout << "tf_z is not set." << std::endl;
-    return 1;
-  }
-  if (nh.getParam("tf_roll", _tf_roll) == false)
-  {
-    std::cout << "tf_roll is not set." << std::endl;
-    return 1;
-  }
-  if (nh.getParam("tf_pitch", _tf_pitch) == false)
-  {
-    std::cout << "tf_pitch is not set." << std::endl;
-    return 1;
-  }
-  if (nh.getParam("tf_yaw", _tf_yaw) == false)
-  {
-    std::cout << "tf_yaw is not set." << std::endl;
-    return 1;
-  }
+
+  _tf_x = _tf_baselink2primarylidar[0];
+  _tf_y = _tf_baselink2primarylidar[1];
+  _tf_z = _tf_baselink2primarylidar[2];
+  _tf_yaw = _tf_baselink2primarylidar[3];
+  _tf_pitch = _tf_baselink2primarylidar[4];
+  _tf_roll = _tf_baselink2primarylidar[5];
 
   std::cout << "-----------------------------------------------------------------" << std::endl;
   std::cout << "Log file: " << filename << std::endl;
@@ -1685,7 +1680,8 @@ int main(int argc, char** argv)
 		  , ros::TransportHints().tcpNoDelay());
   ros::Subscriber imu_sub = nh.subscribe(_imu_topic.c_str(), _queue_size, imu_callback
 		  , ros::TransportHints().tcpNoDelay());
-
+  ros::Subscriber twist_sub = nh.subscribe("vehicle/twist", 1, vehicle_twist_callback
+		  , ros::TransportHints().tcpNoDelay());
   pthread_t thread;
   pthread_create(&thread, NULL, thread_func, NULL);
   SchedClient::ConfigureSchedOfCallingThread();
