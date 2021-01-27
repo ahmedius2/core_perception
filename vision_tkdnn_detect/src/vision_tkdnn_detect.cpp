@@ -150,8 +150,7 @@ void BoundingBoxDetector::Run()
 
     ROS_INFO_STREAM( __APP_NAME__ << "" );
     
-    SchedClient::ConfigureSchedOfCallingThread();
-    TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ, true);
+    TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::CHAIN_HEAD);
     spinner.spinAndProfileUntilShutdown();
     spinner.saveProfilingData();
     //ros::spin();

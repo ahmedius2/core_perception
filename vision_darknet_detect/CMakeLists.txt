@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(vision_darknet_detect)
 
-set(ENV{AUTOWARE_COMPILE_WITH_CUDA} 1)
+set (CMAKE_CXX_STANDARD 11)
 
 find_package(autoware_build_flags REQUIRED)
 
@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   sched_server
 )
 
-find_package(CUDA)
+#find_package(CUDA)
 find_package(OpenCV REQUIRED)
 find_package(OpenMP)
 
@@ -24,7 +24,7 @@ catkin_package()
 
 set(CMAKE_CXX_FLAGS "-O3 -g -Wall ${CMAKE_CXX_FLAGS}")
 
-AW_CHECK_CUDA()
+# AW_CHECK_CUDA()
 
 if(USE_CUDA)
   list(APPEND CUDA_NVCC_FLAGS "--std=c++11 -I$${PROJECT_SOURCE_DIR}/darknet/src -I${PROJECT_SOURCE_DIR}/src -DGPU")

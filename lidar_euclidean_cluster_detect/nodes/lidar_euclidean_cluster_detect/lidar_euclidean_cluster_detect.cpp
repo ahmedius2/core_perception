@@ -1070,9 +1070,7 @@ int main(int argc, char **argv)
 
   // Spin
   // ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
-  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
-  false);
+  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::CHAIN_HEAD);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
 }

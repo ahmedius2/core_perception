@@ -23,9 +23,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "naive_motion_predict");
   NaiveMotionPredict node;
   // ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
-  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
-  false);
+  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::RUN_CB_ON_ARRIVAL);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
   return 0;

@@ -1684,8 +1684,7 @@ int main(int argc, char** argv)
 		  , ros::TransportHints().tcpNoDelay());
   pthread_t thread;
   pthread_create(&thread, NULL, thread_func, NULL);
-  SchedClient::ConfigureSchedOfCallingThread();
-  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ, true);
+  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::RUN_CB_ON_ARRIVAL);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
   //ros::spin();

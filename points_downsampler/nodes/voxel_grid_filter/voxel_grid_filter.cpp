@@ -26,6 +26,7 @@
 #include <points_downsampler/PointsDownsamplerInfo.h>
 
 #include <chrono>
+#include <sstream>
 
 #include "points_downsampler.h"
 #include "sched_server/time_profiling_spinner.h"
@@ -50,6 +51,8 @@ static std::string filename;
 static std::string POINTS_TOPIC;
 static double measurement_range = MAX_MEASUREMENT_RANGE;
 
+static pcl::VoxelGrid<pcl::PointXYZI> voxel_grid_filter;
+
 static void config_callback(const autoware_config_msgs::ConfigVoxelGridFilter::ConstPtr& input)
 {
   voxel_leaf_size = input->voxel_leaf_size;
@@ -58,25 +61,35 @@ static void config_callback(const autoware_config_msgs::ConfigVoxelGridFilter::C
 
 static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 {
+  std::vector<float> times_ms;
+
+  // 1
+  filter_start = std::chrono::system_clock::now();
   pcl::PointCloud<pcl::PointXYZI> scan;
   pcl::fromROSMsg(*input, scan);
+  filter_end = std::chrono::system_clock::now();
+  times_ms.push_back(std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0);
 
+  // 2
+  filter_start = std::chrono::system_clock::now();
   if(measurement_range != MAX_MEASUREMENT_RANGE){
     scan = removePointsByRange(scan, 0, measurement_range);
   }
+  filter_end = std::chrono::system_clock::now();
+  times_ms.push_back(std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0);
 
+  // 3
+  filter_start = std::chrono::system_clock::now();
   pcl::PointCloud<pcl::PointXYZI>::Ptr scan_ptr(new pcl::PointCloud<pcl::PointXYZI>(scan));
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_scan_ptr(new pcl::PointCloud<pcl::PointXYZI>());
 
   sensor_msgs::PointCloud2 filtered_msg;
 
-  filter_start = std::chrono::system_clock::now();
-
   // if voxel_leaf_size < 0.1 voxel_grid_filter cannot down sample (It is specification in PCL)
   if (voxel_leaf_size >= 0.1)
   {
     // Downsampling the velodyne scan using VoxelGrid filter
-    pcl::VoxelGrid<pcl::PointXYZI> voxel_grid_filter;
+    // pcl::VoxelGrid<pcl::PointXYZI> voxel_grid_filter;
     voxel_grid_filter.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
     voxel_grid_filter.setInputCloud(scan_ptr);
     voxel_grid_filter.filter(*filtered_scan_ptr);
@@ -88,9 +101,21 @@ static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
   }
 
   filter_end = std::chrono::system_clock::now();
+  times_ms.push_back(std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0);
+
+  // orig clock end point
+
+  // 4
+  filter_start = std::chrono::system_clock::now();
 
   filtered_msg.header = input->header;
   filtered_points_pub.publish(filtered_msg);
+
+  filter_end = std::chrono::system_clock::now();
+  times_ms.push_back(std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0);
+
+  // 5
+  filter_start = std::chrono::system_clock::now();
 
   points_downsampler_info_msg.header = input->header;
   points_downsampler_info_msg.filter_name = "voxel_grid_filter";
@@ -106,8 +131,14 @@ static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
   }
   points_downsampler_info_msg.original_ring_size = 0;
   points_downsampler_info_msg.filtered_ring_size = 0;
-  points_downsampler_info_msg.exe_time = std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0;
+  points_downsampler_info_msg.exe_time = 1;//std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0;
   points_downsampler_info_pub.publish(points_downsampler_info_msg);
+
+  filter_end = std::chrono::system_clock::now();
+  times_ms.push_back(std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0);
+
+  // 6
+  filter_start = std::chrono::system_clock::now();
 
   if(_output_log == true){
     if(!ofs){
@@ -125,6 +156,15 @@ static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
       << points_downsampler_info_msg.exe_time << ","
       << std::endl;
   }
+
+  filter_end = std::chrono::system_clock::now();
+  times_ms.push_back(std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0);
+
+  std::stringstream ss;
+  for(float tm : times_ms){
+      ss << std::setprecision(3) << tm << " ";
+  }
+  ROS_INFO("Elapsed time (ms) of six stages are:%s\n", ss.str().c_str());
 
 }
 
@@ -146,6 +186,7 @@ int main(int argc, char** argv)
     ofs.open(filename.c_str(), std::ios::app);
   }
   private_nh.param<double>("measurement_range", measurement_range, MAX_MEASUREMENT_RANGE);
+  voxel_grid_filter.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
 
   // Publishers
   filtered_points_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_points", 1);
@@ -158,8 +199,7 @@ int main(int argc, char** argv)
 		  ros::TransportHints().tcpNoDelay());
 
 //  ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
-  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ, false);
+  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::CHAIN_HEAD);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
 

@@ -484,7 +484,7 @@ void RayGroundFilter::Run()
   //SchedClient::ConfigureSchedOfCallingThread();
 
   ROS_INFO("Ready");
-  TimeProfilingSpinner spinner(10,5);
+  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::CHAIN_HEAD);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
   //ros::spin();

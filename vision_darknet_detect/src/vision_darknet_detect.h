@@ -43,6 +43,7 @@
 
 #include <opencv2/opencv.hpp>
 
+#include "sched_server/time_profiling_spinner.h"
 
 extern "C"
 {

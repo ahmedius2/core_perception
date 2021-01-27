@@ -25,7 +25,7 @@
 #include <iostream>
 #include <gnss/geo_pos_conv.hpp>
 
-#include "sched_server/sched_client.hpp"
+//#include "sched_server/sched_client.hpp"
 #include "sched_server/time_profiling_spinner.h"
 
 static ros::Publisher pose_publisher;
@@ -110,9 +110,7 @@ int main(int argc, char **argv)
   ros::Subscriber gnss_pose_subscriber = nh.subscribe("fix", 1, GNSSCallback, ros::TransportHints().tcpNoDelay());
 
   // ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
-  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
-    false);
+  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::CHAIN_HEAD);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
   return 0;

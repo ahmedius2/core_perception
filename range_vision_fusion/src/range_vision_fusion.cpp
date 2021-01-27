@@ -707,9 +707,7 @@ ROSRangeVisionFusionApp::Run()
   ROS_INFO("[%s] Ready. Waiting for data...", __APP_NAME__);
 
   //ros::spin();
-  SchedClient::ConfigureSchedOfCallingThread();
-  TimeProfilingSpinner spinner(USE_DEFAULT_CALLBACK_FREQ,
-  false);
+  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::RUN_CB_ON_ARRIVAL);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
 
