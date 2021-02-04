@@ -42,8 +42,8 @@
 
 #include <opencv2/opencv.hpp>
 
-#include <tkDNN/CenternetDetection.h>
-#include <tkDNN/MobilenetDetection.h>
+//#include <tkDNN/CenternetDetection.h>
+//#include <tkDNN/MobilenetDetection.h>
 #include <tkDNN/Yolo3Detection.h>
 
 //#define LIMIT_EXEC
