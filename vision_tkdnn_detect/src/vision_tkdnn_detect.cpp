@@ -71,12 +71,12 @@ void BoundingBoxDetector::image_callback(const sensor_msgs::ImageConstPtr& msg)
     }
 
     publisher_objects_.publish(output_message);
-    if(++processed_messages_ == MESSAGES_TO_PROCESS){
-        printStats();
+//    if(++processed_messages_ == MESSAGES_TO_PROCESS){
+//        printStats();
 #ifdef LIMIT_EXEC
     	ros::shutdown();
 #endif
-    }
+//    }
 
 
 }
@@ -96,7 +96,8 @@ void BoundingBoxDetector::Run()
     }
     else
     {
-        ROS_INFO("No image node received, defaulting to /image_raw, you can use _image_raw_node:=YOUR_TOPIC");
+        ROS_INFO("No image node received, defaulting to /image_raw,"
+                 " you can use _image_raw_node:=YOUR_TOPIC");
         image_raw_topic_str = "/image_raw";
     }
 
@@ -142,15 +143,21 @@ void BoundingBoxDetector::Run()
 
     //generateColors(colors_, 80);
 
-    publisher_objects_ = node_handle_.advertise<autoware_msgs::DetectedObjectArray>("/detection/image_detector/objects", 1);
+    publisher_objects_ = node_handle_.advertise<autoware_msgs::DetectedObjectArray>(
+                "/detection/image_detector/objects", 1);
 
     ROS_INFO("Subscribing to... %s", image_raw_topic_str.c_str());
-    subscriber_image_raw_ = node_handle_.subscribe(image_raw_topic_str, 1, &BoundingBoxDetector::image_callback, this,
-                                                   ros::TransportHints().tcpNoDelay());
+    subscriber_image_raw_ = node_handle_.subscribe(
+                image_raw_topic_str, 1,
+                &BoundingBoxDetector::image_callback, this,
+                ros::TransportHints().tcpNoDelay());
 
     ROS_INFO_STREAM( __APP_NAME__ << "" );
     
-    TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::CHAIN_HEAD);
+    TimeProfilingSpinner spinner(
+                TimeProfilingSpinner::OperationMode::CHAIN_HEAD,
+                USE_DEFAULT_CALLBACK_FREQ,
+                true);
     spinner.spinAndProfileUntilShutdown();
     spinner.saveProfilingData();
     //ros::spin();
@@ -162,13 +169,18 @@ void BoundingBoxDetector::Run()
 void BoundingBoxDetector::printStats()
 {
     std::cout<<COL_GREENB<<"\n\nTime stats:\n";
-    std::cout<<"Min: "<<*std::min_element(yolo_.stats.begin(), yolo_.stats.end())/num_batches_<<" ms\n";
-    std::cout<<"Max: "<<*std::max_element(yolo_.stats.begin(), yolo_.stats.end())/num_batches_<<" ms\n";
+    std::cout<<"Min: "
+            <<*std::min_element(yolo_.stats.begin(), yolo_.stats.end())
+              /num_batches_<<" ms\n";
+    std::cout<<"Max: "
+            <<*std::max_element(yolo_.stats.begin(), yolo_.stats.end())
+              /num_batches_<<" ms\n";
     unsigned mean=0;
     for(int i=0; i<yolo_.stats.size(); i++)
         mean += yolo_.stats[i];
     mean /= yolo_.stats.size();
-    std::cout<<"Avg: "<<mean/num_batches_<<" ms\t"<<1000/(mean/num_batches_)<<" FPS\n"<<COL_END;
+    std::cout<<"Avg: "<<mean/num_batches_<<
+               " ms\t"<<1000/(mean/num_batches_)<<" FPS\n"<<COL_END;
 
     auto str = pretrained_model_file_.substr(0,pretrained_model_file_.length()-3);
     std::stringstream ss(str);

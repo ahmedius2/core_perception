@@ -1684,7 +1684,10 @@ int main(int argc, char** argv)
 		  , ros::TransportHints().tcpNoDelay());
   pthread_t thread;
   pthread_create(&thread, NULL, thread_func, NULL);
-  TimeProfilingSpinner spinner(TimeProfilingSpinner::OperationMode::RUN_CB_ON_ARRIVAL);
+  TimeProfilingSpinner spinner(
+              TimeProfilingSpinner::OperationMode::RUN_CB_ON_ARRIVAL,
+              USE_DEFAULT_CALLBACK_FREQ,
+              true);
   spinner.spinAndProfileUntilShutdown();
   spinner.saveProfilingData();
   //ros::spin();
